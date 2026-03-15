@@ -293,15 +293,54 @@
 
         <!-- MasterPrompt settings (collapsed by default) -->
         <div id="ai-settings-panel" class="ai-settings-panel">
-            <label class="ai-settings-label">
-                <i class="fa-solid fa-id-card"></i> MasterPrompt
-                <span class="ai-settings-sublabel">Tell the AI who you are and what matters to you. It will use this context on every conversation.</span>
-            </label>
-            <textarea id="ai-masterprompt" class="ai-masterprompt"
-                placeholder="e.g.: I'm a product designer focused on shipping fast. My main goal right now is launching v2 by end of month. I prefer direct, no-fluff advice. My top priorities: 1) user growth 2) bug fixes 3) documentation."></textarea>
-            <button id="ai-save-masterprompt-btn" class="btn primary-btn ai-save-btn">
-                <i class="fa-solid fa-floppy-disk"></i> Save MasterPrompt
-            </button>
+            <div class="mp-section-header">
+                <span class="ai-settings-label"><i class="fa-solid fa-id-card"></i> MasterPrompt</span>
+                <span class="ai-settings-sublabel">Your personal context — goals, priorities, work style — injected into every AI conversation.</span>
+            </div>
+
+            <!-- Active file card (hidden when no file) -->
+            <div id="mp-file-card" class="mp-file-card hidden">
+                <div class="mp-file-icon"><i class="fa-solid fa-file-lines"></i></div>
+                <div class="mp-file-info">
+                    <span id="mp-file-name" class="mp-file-name">—</span>
+                    <span id="mp-file-meta" class="mp-file-meta">—</span>
+                </div>
+                <div class="mp-file-actions">
+                    <button id="mp-replace-btn" class="icon-btn" title="Upload a new version">
+                        <i class="fa-solid fa-arrow-up-from-bracket"></i>
+                    </button>
+                    <button id="mp-edit-btn" class="icon-btn" title="Edit manually">
+                        <i class="fa-solid fa-pen"></i>
+                    </button>
+                    <button id="mp-delete-btn" class="icon-btn" title="Delete MasterPrompt" style="color:var(--accent-danger)">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Drop zone (shown when no file OR replacing) -->
+            <div id="mp-dropzone" class="mp-dropzone">
+                <i class="fa-solid fa-file-arrow-up mp-drop-icon"></i>
+                <p class="mp-drop-title">Drop your file here</p>
+                <p class="mp-drop-sub">.txt or .md — your goals, priorities, work style</p>
+                <button id="mp-browse-btn" class="text-btn outline mp-browse-btn">
+                    <i class="fa-solid fa-folder-open"></i> Browse file
+                </button>
+                <input type="file" id="mp-file-input" accept=".txt,.md,.markdown" hidden>
+                <button id="mp-type-instead-btn" class="mp-type-link">type manually instead</button>
+            </div>
+
+            <!-- Manual text editor -->
+            <div id="mp-editor" class="mp-editor hidden">
+                <textarea id="ai-masterprompt" class="ai-masterprompt"
+                    placeholder="e.g.: I'm a product designer shipping v2 by end of month. Direct advice only. Priorities: 1) user growth 2) bug fixes."></textarea>
+                <div class="mp-editor-actions">
+                    <button id="ai-save-masterprompt-btn" class="btn primary-btn ai-save-btn">
+                        <i class="fa-solid fa-floppy-disk"></i> Save
+                    </button>
+                    <button id="mp-cancel-edit-btn" class="text-btn">Cancel</button>
+                </div>
+            </div>
         </div>
 
         <!-- Messages -->

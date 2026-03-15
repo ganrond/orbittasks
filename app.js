@@ -1596,29 +1596,39 @@ document.addEventListener('DOMContentLoaded', init);
 // AI ASSISTANT
 // =====================================================
 function initAI() {
-    const fab         = document.getElementById('ai-fab');
-    const panel       = document.getElementById('ai-panel');
-    const backdrop    = document.getElementById('ai-backdrop');
-    const closeBtn    = document.getElementById('ai-close-btn');
-    const settingsBtn = document.getElementById('ai-settings-btn');
+    const fab           = document.getElementById('ai-fab');
+    const panel         = document.getElementById('ai-panel');
+    const backdrop      = document.getElementById('ai-backdrop');
+    const closeBtn      = document.getElementById('ai-close-btn');
+    const settingsBtn   = document.getElementById('ai-settings-btn');
     const settingsPanel = document.getElementById('ai-settings-panel');
-    const newChatBtn  = document.getElementById('ai-new-chat-btn');
-    const saveMpBtn   = document.getElementById('ai-save-masterprompt-btn');
-    const masterPromptEl = document.getElementById('ai-masterprompt');
-    const messagesEl  = document.getElementById('ai-messages');
-    const inputEl     = document.getElementById('ai-input');
-    const sendBtn     = document.getElementById('ai-send-btn');
-    const contextInfo = document.getElementById('ai-context-info');
+    const newChatBtn    = document.getElementById('ai-new-chat-btn');
+    const messagesEl    = document.getElementById('ai-messages');
+    const inputEl       = document.getElementById('ai-input');
+    const sendBtn       = document.getElementById('ai-send-btn');
+    const contextInfo   = document.getElementById('ai-context-info');
+
+    // MasterPrompt file-manager elements
+    const mpFileCard    = document.getElementById('mp-file-card');
+    const mpFileNameEl  = document.getElementById('mp-file-name');
+    const mpFileMetaEl  = document.getElementById('mp-file-meta');
+    const mpReplaceBtn  = document.getElementById('mp-replace-btn');
+    const mpEditBtn     = document.getElementById('mp-edit-btn');
+    const mpDeleteBtn   = document.getElementById('mp-delete-btn');
+    const mpDropzone    = document.getElementById('mp-dropzone');
+    const mpBrowseBtn   = document.getElementById('mp-browse-btn');
+    const mpFileInput   = document.getElementById('mp-file-input');
+    const mpTypeBtn     = document.getElementById('mp-type-instead-btn');
+    const mpEditor      = document.getElementById('mp-editor');
+    const mpTextarea    = document.getElementById('ai-masterprompt');
+    const mpSaveBtn     = document.getElementById('ai-save-masterprompt-btn');
+    const mpCancelBtn   = document.getElementById('mp-cancel-edit-btn');
 
     if (!fab || !panel) return;
 
     // ---- State ----
-    let chatHistory = [];   // { role: 'user'|'assistant', content: string }[]
+    let chatHistory = [];
     let streaming   = false;
-
-    // ---- Restore MasterPrompt ----
-    const savedMp = localStorage.getItem('orbitMasterPrompt') || '';
-    if (masterPromptEl) masterPromptEl.value = savedMp;
 
     // ---- Open / Close ----
     function openPanel() {
@@ -1644,13 +1654,130 @@ function initAI() {
         settingsPanel.classList.toggle('open');
     });
 
-    // ---- Save MasterPrompt ----
-    saveMpBtn.addEventListener('click', () => {
-        const val = masterPromptEl.value.trim();
-        localStorage.setItem('orbitMasterPrompt', val);
-        showToast('MasterPrompt saved!', 'success');
-        settingsPanel.classList.remove('open');
+    // ================================================================
+    // MasterPrompt file manager
+    // ================================================================
+    function mpRenderState() {
+        const meta = (() => {
+            try { return JSON.parse(localStorage.getItem('orbitMasterPromptFile') || 'null'); }
+            catch { return null; }
+        })();
+        const hasContent = !!(localStorage.getItem('orbitMasterPrompt') || '').trim();
+
+        if (hasContent && meta) {
+            // Show file card, hide dropzone & editor
+            mpFileCard.classList.remove('hidden');
+            mpDropzone.classList.add('hidden');
+            mpEditor.classList.add('hidden');
+            mpFileNameEl.textContent = meta.name;
+            const kb = (meta.size / 1024).toFixed(1);
+            const date = new Date(meta.uploadedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+            mpFileMetaEl.textContent = `${kb} KB · saved ${date}`;
+        } else if (hasContent && !meta) {
+            // Has manually-typed text — show editor with content
+            mpFileCard.classList.add('hidden');
+            mpDropzone.classList.add('hidden');
+            mpEditor.classList.remove('hidden');
+            if (mpTextarea) mpTextarea.value = localStorage.getItem('orbitMasterPrompt') || '';
+        } else {
+            // Nothing yet — show dropzone
+            mpFileCard.classList.add('hidden');
+            mpDropzone.classList.remove('hidden');
+            mpEditor.classList.add('hidden');
+        }
+    }
+
+    function mpLoadFile(file) {
+        if (!file) return;
+        const allowed = ['text/plain', 'text/markdown', ''];
+        const extOk   = /\.(txt|md|markdown)$/i.test(file.name);
+        if (!extOk) { showToast('Only .txt or .md files are supported.', 'warning'); return; }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = (e.target.result || '').trim();
+            if (!text) { showToast('The file appears to be empty.', 'warning'); return; }
+            localStorage.setItem('orbitMasterPrompt', text);
+            localStorage.setItem('orbitMasterPromptFile', JSON.stringify({
+                name: file.name,
+                size: file.size,
+                uploadedAt: new Date().toISOString()
+            }));
+            mpRenderState();
+            showToast(`MasterPrompt loaded from "${file.name}"`, 'success');
+        };
+        reader.readAsText(file);
+    }
+
+    // Browse button
+    mpBrowseBtn.addEventListener('click', () => mpFileInput.click());
+    mpFileInput.addEventListener('change', (e) => {
+        mpLoadFile(e.target.files[0]);
+        mpFileInput.value = '';
     });
+
+    // Replace (same as browse)
+    mpReplaceBtn.addEventListener('click', () => mpFileInput.click());
+
+    // Delete
+    mpDeleteBtn.addEventListener('click', () => {
+        if (!confirm('Remove the MasterPrompt? The AI will only have task context.')) return;
+        localStorage.removeItem('orbitMasterPrompt');
+        localStorage.removeItem('orbitMasterPromptFile');
+        mpRenderState();
+        showToast('MasterPrompt removed.', 'warning');
+    });
+
+    // Edit manually (from file card)
+    mpEditBtn.addEventListener('click', () => {
+        mpFileCard.classList.add('hidden');
+        mpDropzone.classList.add('hidden');
+        mpEditor.classList.remove('hidden');
+        if (mpTextarea) mpTextarea.value = localStorage.getItem('orbitMasterPrompt') || '';
+        mpTextarea.focus();
+    });
+
+    // "type manually instead" link
+    mpTypeBtn.addEventListener('click', () => {
+        mpDropzone.classList.add('hidden');
+        mpEditor.classList.remove('hidden');
+        mpTextarea.focus();
+    });
+
+    // Save from editor
+    mpSaveBtn.addEventListener('click', () => {
+        const val = (mpTextarea.value || '').trim();
+        if (!val) { showToast('Write something first.', 'warning'); return; }
+        localStorage.setItem('orbitMasterPrompt', val);
+        // If saving manually, clear file metadata so UI shows editor, not card
+        localStorage.removeItem('orbitMasterPromptFile');
+        // Store as a virtual "manual" file for display purposes
+        localStorage.setItem('orbitMasterPromptFile', JSON.stringify({
+            name: 'manual entry',
+            size: new Blob([val]).size,
+            uploadedAt: new Date().toISOString()
+        }));
+        mpRenderState();
+        showToast('MasterPrompt saved!', 'success');
+    });
+
+    // Cancel edit — go back to previous state
+    mpCancelBtn.addEventListener('click', () => {
+        mpEditor.classList.add('hidden');
+        mpRenderState();
+    });
+
+    // Drag & drop on the drop zone
+    mpDropzone.addEventListener('dragover', (e) => { e.preventDefault(); mpDropzone.classList.add('drag-over'); });
+    mpDropzone.addEventListener('dragleave', ()  => mpDropzone.classList.remove('drag-over'));
+    mpDropzone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        mpDropzone.classList.remove('drag-over');
+        mpLoadFile(e.dataTransfer.files[0]);
+    });
+
+    // Init display
+    mpRenderState();
 
     // ---- New Chat ----
     newChatBtn.addEventListener('click', () => {
