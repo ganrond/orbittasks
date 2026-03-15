@@ -49,7 +49,7 @@ let currentTheme = localStorage.getItem('orbitTheme') || 'default';
 // Pomodoro duration (in seconds), default 25 min, persisted
 let pomodoroDuration = parseInt(localStorage.getItem('orbitPomodoroDuration') || '1500', 10);
 
-// Inicializa conexão com Supabase (retorna false se credenciais não preenchidas)
+// Initialize Supabase connection (returns false if credentials not filled)
 const dbEnabled = (typeof initDB === 'function') ? initDB() : false;
 
 let activeTimerTaskId = null;
@@ -254,7 +254,7 @@ function initDurationPicker() {
                 timeRemaining = pomodoroDuration;
                 updateTimerDisplay();
             }
-            showToast(`Duração do foco: ${mins}m`, 'info');
+            showToast(`Focus duration: ${mins}m`, 'info');
         });
     });
 }
@@ -351,7 +351,7 @@ function renderSidebar() {
             <div class="project-item-inner">
                 <span class="item-name">${escapeHTML(p.name)}</span>
                 <div class="project-item-controls">
-                    <button class="item-rename" title="Renomear"><i class="fa-solid fa-pen"></i></button>
+                    <button class="item-rename" title="Rename"><i class="fa-solid fa-pen"></i></button>
                     <span class="project-count">${done}/${total}</span>
                 </div>
             </div>
@@ -575,12 +575,12 @@ function createTaskElement(task) {
         <div class="task-extra hidden">
             <div class="task-extra-fields">
                 <div class="task-extra-field">
-                    <label class="extra-label"><i class="fa-regular fa-calendar"></i> Prazo</label>
+                    <label class="extra-label"><i class="fa-regular fa-calendar"></i> Due Date</label>
                     <input type="date" class="task-due-input extra-input" value="${task.dueDate || ''}">
                 </div>
                 <div class="task-extra-field">
-                    <label class="extra-label"><i class="fa-regular fa-note-sticky"></i> Notas</label>
-                    <textarea class="task-notes-input extra-input" placeholder="Adicione notas...">${escapeHTML(task.notes || '')}</textarea>
+                    <label class="extra-label"><i class="fa-regular fa-note-sticky"></i> Notes</label>
+                    <textarea class="task-notes-input extra-input" placeholder="Add notes...">${escapeHTML(task.notes || '')}</textarea>
                 </div>
             </div>
         </div>
@@ -777,18 +777,18 @@ function handleCreateProject(e) {
 
     saveAll();
     closeAllModals();
-    showToast(`Projeto "${name}" criado!`, 'success');
+    showToast(`Project "${name}" created!`, 'success');
     switchProject(newProjectId);
 }
 
 function confirmDeleteProject() {
     if (projects.length <= 1) return;
     const proj = projects.find(p => p.id === currentProjectId);
-    if (confirm(`Deletar o projeto "${proj?.name}" e todas as suas tarefas?`)) {
+    if (confirm(`Delete project "${proj?.name}" and all its tasks?`)) {
         if (dbEnabled) dbDeleteProject(currentProjectId);
         tasks = tasks.filter(t => t.projectId !== currentProjectId);
         projects = projects.filter(p => p.id !== currentProjectId);
-        showToast('Projeto deletado.', 'warning');
+        showToast('Project deleted.', 'warning');
         switchProject(projects[0].id);
     }
 }
@@ -827,12 +827,12 @@ function prepSaveAsTemplate() {
 }
 
 function deleteTemplate(id) {
-    if (confirm('Deletar este template?')) {
+    if (confirm('Delete this template?')) {
         if (dbEnabled) dbDeleteTemplate(id);
         templates = templates.filter(t => t.id !== id);
         saveAll();
         renderSidebar();
-        showToast('Template deletado.', 'warning');
+        showToast('Template deleted.', 'warning');
     }
 }
 
@@ -917,17 +917,17 @@ function completeAllTasks() {
         saveAll();
         renderTasks();
         renderSidebar();
-        showToast('Todas as tarefas concluídas!', 'success');
+        showToast('All tasks completed!', 'success');
     }
 }
 
 function clearCompletedTasks() {
     const completed = tasks.filter(t => t.projectId === currentProjectId && t.completed);
     if (completed.length === 0) {
-        showToast('Nenhuma tarefa concluída para limpar.', 'info');
+        showToast('No completed tasks to clear.', 'info');
         return;
     }
-    if (confirm(`Remover ${completed.length} tarefa(s) concluída(s)?`)) {
+    if (confirm(`Remove ${completed.length} completed task(s)?`)) {
         if (dbEnabled) {
             completed.forEach(t => dbDeleteTask(t.id));
         }
@@ -935,7 +935,7 @@ function clearCompletedTasks() {
         saveAll();
         renderTasks();
         renderSidebar();
-        showToast(`${completed.length} tarefa(s) removida(s).`, 'warning');
+        showToast(`${completed.length} task(s) removed.`, 'warning');
     }
 }
 
@@ -967,7 +967,7 @@ function startTimer(taskId) {
 
         if (timeRemaining <= 0) {
             stopTimer();
-            showToast('Sessão de foco concluída! Ótimo trabalho.', 'timer', 5000);
+            showToast('Focus session complete! Great work.', 'timer', 5000);
         }
     }, 1000);
 
@@ -1142,7 +1142,7 @@ function renderHistory() {
 
             const prioDot    = t.priority ? `<span class="prio-dot prio-dot-${t.priority}"></span>` : '';
             const notesIcon  = (t.notes && t.notes.trim()) ? `<i class="fa-solid fa-note-sticky history-notes" title="${escapeHTML(t.notes)}"></i>` : '';
-            const createdStr = t.createdAt  ? `<span class="history-date">Criada ${formatShortDate(t.createdAt)}</span>` : '';
+            const createdStr = t.createdAt  ? `<span class="history-date">Created ${formatShortDate(t.createdAt)}</span>` : '';
             const doneStr    = (t.completed && t.completedAt) ? `<span class="history-date done-date">&#10003; ${formatShortDate(t.completedAt)}</span>` : '';
 
             return `<div class="history-task-row">
@@ -1373,7 +1373,7 @@ function handleVoiceCommand(command) {
             saveAll();
             renderSidebar();
             switchProject(newProjectId);
-            showToast(`Projeto "${name}" criado por voz!`, 'success');
+            showToast(`Project "${name}" created!`, 'success');
         }
         return;
     }
@@ -1398,7 +1398,7 @@ function handleVoiceCommand(command) {
         saveAll();
         renderTasks();
         renderSidebar();
-        showToast('Tarefas concluídas removidas.', 'warning');
+        showToast('Completed tasks removed.', 'warning');
         return;
     }
 
