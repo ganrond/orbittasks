@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Orbit Tasks</title>
+    <!-- Use a modern Google Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="background-elements">
+        <div class="glow-orb orb-1"></div>
+        <div class="glow-orb orb-2"></div>
+    </div>
+
+    <!-- Mobile menu toggle -->
+    <button class="menu-toggle" id="menu-toggle">
+        <i class="fa-solid fa-bars"></i>
+    </button>
+
+    <div class="app-layout">
+        <!-- Sidebar -->
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <h2>Orbit</h2>
+                <button class="close-sidebar" id="close-sidebar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <h3>Projects</h3>
+                    <button id="add-project-btn" class="icon-btn" title="New Project"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <ul id="project-list" class="side-list">
+                    <!-- Projects injected here -->
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <div class="section-header">
+                    <h3>Templates</h3>
+                    <button id="add-template-btn" class="icon-btn" title="New Template"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <ul id="template-list" class="side-list">
+                    <!-- Templates injected here -->
+                </ul>
+            </div>
+
+            <div class="sidebar-section">
+                <button id="nav-history-btn" class="history-nav-btn"><i class="fa-solid fa-clock-rotate-left"></i> View History</button>
+            </div>
+        </aside>
+
+        <main class="app-container">
+            <div id="workspace-view">
+            <header class="app-header">
+                <div class="header-title">
+                    <h1 id="current-project-title">Orbit Tasks</h1>
+                    <p>Organize your universe.</p>
+                </div>
+                <div class="header-controls">
+                    <div class="theme-picker">
+                        <button id="theme-toggle-btn" class="icon-btn" title="Color Scheme">
+                            <i class="fa-solid fa-palette"></i>
+                        </button>
+                        <div id="theme-dropdown" class="theme-dropdown hidden">
+                            <button type="button" class="theme-option active" data-theme="default"><span class="theme-color color-default"></span> Space Dark</button>
+                            <button type="button" class="theme-option" data-theme="light"><span class="theme-color color-light"></span> Sky Light</button>
+                            <button type="button" class="theme-option" data-theme="midnight"><span class="theme-color color-midnight"></span> Midnight</button>
+                            <button type="button" class="theme-option" data-theme="forest"><span class="theme-color color-forest"></span> Emerald</button>
+                        </div>
+                    </div>
+                    <div class="header-stats">
+                        <div id="global-timer" class="stat-box timer-box hidden">
+                            <span id="timer-display" class="stat-number">25:00</span>
+                            <span class="stat-label">Focus</span>
+                            <button id="restart-timer-btn" class="icon-btn timer-restart" title="Restart Timer"><i class="fa-solid fa-rotate-left"></i></button>
+                        </div>
+                        <div class="stat-box">
+                            <span id="pending-count" class="stat-number">0</span>
+                            <span class="stat-label">Pending</span>
+                        </div>
+                        <div class="stat-box">
+                            <span id="completed-count" class="stat-number">0</span>
+                            <span class="stat-label">Completed</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <form id="task-form" class="task-form">
+                <div class="input-group">
+                    <input type="text" id="task-input" placeholder="What needs to be done?" autocomplete="off" required>
+                    <button type="button" id="voice-btn" class="voice-btn" title="Voice Command" aria-label="Voice Command">
+                        <i class="fa-solid fa-microphone"></i>
+                    </button>
+                    <span id="voice-status" class="voice-status">Listening...</span>
+                    <button type="submit" class="add-btn" aria-label="Add Task">
+                        <i class="fa-solid fa-plus"></i>
+                    </button>
+                </div>
+                <div id="voice-help" class="voice-help">
+                    <p><strong>Wake word:</strong> "Hey Orbit" &nbsp;|&nbsp; <strong>Stop:</strong> "Goodbye Orbit"</p>
+                    <small>"Add task [name]", "Complete [name]", "Switch to [project]", "New project [name]", "Delete task [name]", "Clear completed", "Open/Close sidebar"</small>
+                </div>
+            </form>
+
+            <div class="filters-actions">
+                <div class="filters-group">
+                    <div class="filters">
+                        <button class="filter-btn active" data-filter="all">All</button>
+                        <button class="filter-btn" data-filter="pending">Pending</button>
+                        <button class="filter-btn" data-filter="completed">Completed</button>
+                    </div>
+                    <div class="sort-dropdown">
+                        <label for="sort-select" class="visually-hidden">Sort tasks</label>
+                        <select id="sort-select" class="sort-select">
+                            <option value="custom">Custom Order</option>
+                            <option value="time-desc">Time Spent (Most)</option>
+                            <option value="time-asc">Time Spent (Least)</option>
+                            <option value="newest">Newest First</option>
+                            <option value="oldest">Oldest First</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="project-actions">
+                    <button id="complete-all-btn" class="text-btn outline" title="Complete All Tasks">
+                        <i class="fa-solid fa-check-double"></i> <span class="action-text">Complete All</span>
+                    </button>
+                    <button id="save-template-btn" class="text-btn outline" title="Save as Template">
+                        <i class="fa-solid fa-layer-group"></i> <span class="action-text">Template</span>
+                    </button>
+                    <button id="delete-project-btn" class="text-btn danger" title="Delete Project">
+                        <i class="fa-solid fa-trash"></i> <span class="action-text">Delete</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="task-list-container">
+                <ul id="task-list" class="task-list">
+                    <!-- Tasks will be injected here via JavaScript -->
+                </ul>
+                
+                <div id="empty-state" class="empty-state">
+                    <i class="fa-solid fa-clipboard-list empty-icon"></i>
+                    <h3>No tasks yet</h3>
+                    <p>Add a task above to get started.</p>
+                </div>
+            </div>
+            </div> <!-- End workspace-view -->
+
+            <!-- History View -->
+            <div id="history-view" class="hidden">
+                <header class="app-header history-header">
+                    <div class="header-title">
+                        <h1>Activity History</h1>
+                        <p>Total time breakdown by project.</p>
+                    </div>
+                    <div class="header-controls">
+                        <button id="back-to-workspace-btn" class="text-btn outline back-btn">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                    </div>
+                </header>
+
+                <div class="history-search-wrapper">
+                    <i class="fa-solid fa-magnifying-glass history-search-icon"></i>
+                    <input type="text" id="history-search" class="history-search-input" placeholder="Search by project or task...">
+                </div>
+
+                <div id="history-list-container" class="history-list">
+                    <!-- History projects injected here -->
+                </div>
+            </div> <!-- End history-view -->
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay">
+        <!-- New Project Modal -->
+        <div id="project-modal" class="modal">
+            <div class="modal-header">
+                <h2>New Project</h2>
+                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="project-form">
+                <div class="form-group">
+                    <label for="project-name-input">Project Name</label>
+                    <input type="text" id="project-name-input" required placeholder="e.g. Work Tasks">
+                </div>
+                <div class="form-group">
+                    <label for="project-template-select">Start from Template (Optional)</label>
+                    <select id="project-template-select">
+                        <option value="">-- Blank Project --</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn primary-btn">Create Project</button>
+            </form>
+        </div>
+
+        <!-- New Template Modal -->
+        <div id="template-modal" class="modal">
+            <div class="modal-header">
+                <h2>New Template</h2>
+                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="template-form">
+                <div class="form-group">
+                    <label for="template-name-input">Template Name</label>
+                    <input type="text" id="template-name-input" required placeholder="e.g. Grocery Trip">
+                </div>
+                <div class="form-group">
+                    <label for="template-tasks-input">Tasks (One per line)</label>
+                    <textarea id="template-tasks-input" rows="5" placeholder="Apples&#10;Bananas&#10;Milk"></textarea>
+                </div>
+                <button type="submit" class="btn primary-btn">Save Template</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="app.js" defer></script>
+</body>
+</html>
