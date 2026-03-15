@@ -109,6 +109,7 @@ body {
     background-color: var(--bg-dark);
     color: var(--text-main);
     min-height: 100vh;
+    min-height: 100dvh;
     overflow-x: hidden;
     /* Subtle grain texture via SVG */
     background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
@@ -140,6 +141,7 @@ body {
     padding: 2rem;
     gap: 1.5rem;
     min-height: 100vh;
+    min-height: 100dvh;
     align-items: flex-start;
 }
 
@@ -162,6 +164,7 @@ body {
     position: sticky;
     top: 2rem;
     max-height: calc(100vh - 4rem);
+    max-height: calc(100dvh - 4rem);
     overflow-y: auto;
     transition: var(--transition-smooth);
 }
@@ -1097,12 +1100,58 @@ body {
 @supports (padding: env(safe-area-inset-bottom)) {
     .app-container {
         padding-bottom: calc(1rem + env(safe-area-inset-bottom));
+        margin-bottom: calc(4.5rem + env(safe-area-inset-bottom));
     }
     .mobile-bottom-nav {
         padding-bottom: env(safe-area-inset-bottom);
         height: calc(58px + env(safe-area-inset-bottom));
     }
+    /* AI panel: pad input area above home bar */
+    .ai-input-area {
+        padding-bottom: calc(0.75rem + env(safe-area-inset-bottom));
+    }
+    /* FAB: lift above home bar */
+    .ai-fab {
+        bottom: calc(5.5rem + env(safe-area-inset-bottom));
+    }
+    @media (max-width: 600px) {
+        .ai-fab {
+            bottom: calc(4.75rem + env(safe-area-inset-bottom));
+        }
+    }
 }
+
+/* === AUTOMATION BADGE (robot icon on tasks) === */
+.auto-badge {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--accent-primary);
+    font-size: 0.72rem;
+    padding: 0.1rem 0.2rem;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.75;
+    flex-shrink: 0;
+    transition: var(--transition-fast);
+    line-height: 1;
+}
+.auto-badge:hover {
+    opacity: 1;
+    background: rgba(77,255,196,0.12);
+    transform: scale(1.2);
+}
+
+/* Scanning indicator inside chat */
+.ai-scan-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-sub);
+    font-style: italic;
+}
+.ai-scan-indicator i { color: var(--accent-primary); }
 
 /* === TOAST NOTIFICATIONS === */
 .toast-container { position: fixed; bottom: 5rem; right: 1.25rem; z-index: 9999; display: flex; flex-direction: column; gap: 0.5rem; pointer-events: none; }
@@ -1500,7 +1549,7 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
     .ai-panel {
         top: auto;
         bottom: 0; left: 0; right: 0;
-        width: 100%; height: 88vh;
+        width: 100%; height: 88vh; height: 88dvh;
         border-left: none;
         border-top: 1px solid var(--border);
         border-radius: 20px 20px 0 0;

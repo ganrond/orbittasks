@@ -619,6 +619,11 @@ function createTaskElement(task) {
         notesIcon = `<i class="fa-solid fa-note-sticky notes-indicator" title="Tem notas"></i>`;
     }
 
+    // Automation badge
+    const autoBadge = task.automatable
+        ? `<button class="auto-badge" title="This task may be automatable — click for a free setup guide"><i class="fa-solid fa-robot"></i></button>`
+        : '';
+
     // Drag handle (only for custom sort)
     const dragHandleHtml = isCustomSort
         ? `<div class="drag-handle"><i class="fa-solid fa-grip-vertical"></i></div>`
@@ -637,6 +642,7 @@ function createTaskElement(task) {
                         ${prioDot}
                         <span class="task-text">${escapeHTML(task.text)}</span>
                         ${notesIcon}
+                        ${autoBadge}
                     </div>
                     <div class="task-badges">
                         ${timeBadge}
@@ -668,6 +674,14 @@ function createTaskElement(task) {
             </div>
         </div>
     `;
+
+    // Automation guide button
+    if (task.automatable) {
+        li.querySelector('.auto-badge').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (aiActions.openGuide) aiActions.openGuide(task);
+        });
+    }
 
     // Expand button
     const expandBtn = li.querySelector('.expand-btn');
@@ -1595,6 +1609,10 @@ document.addEventListener('DOMContentLoaded', init);
 // =====================================================
 // AI ASSISTANT
 // =====================================================
+
+// Bridge: lets createTaskElement call functions defined inside initAI
+const aiActions = { openGuide: null };
+
 function initAI() {
     const fab           = document.getElementById('ai-fab');
     const panel         = document.getElementById('ai-panel');
@@ -2023,6 +2041,139 @@ ${JSON.stringify(projectContext, null, 2)}
             messagesEl.scrollTop = messagesEl.scrollHeight;
         }
     }
+
+    // ---- Automation: open guide for a specific task ----
+    function openAutomationGuide(task) {
+        openPanel();
+        const prompt = `Generate a practical automation guide for this task: "${task.text}"
+
+Prioritize free tools with the simplest possible setup. Consider in this order:
+1. **Zapier** (free tier — 100 tasks/month)
+2. **Make** (free tier — 1000 operations/month)
+3. **Google Sheets + Apps Script** (completely free)
+4. **iOS Shortcuts / Android Tasker** (free, built-in)
+5. **Browser bookmarklet or extension** (free)
+
+Structure your response:
+**Recommended tool:** [tool name and why it fits]
+**Setup steps:** (numbered, beginner-friendly — assume zero technical knowledge)
+**What to watch out for:** (limits, gotchas, anything that could trip them up)`;
+        sendMessage(prompt);
+    }
+
+    // ---- Automation: scan all pending tasks ----
+    async function runAutomationScan() {
+        if (streaming) return;
+
+        const projectTasks = tasks.filter(t => t.projectId === currentProjectId && !t.completed);
+        if (projectTasks.length === 0) {
+            openPanel();
+            appendBubble('assistant', 'No pending tasks to scan. Add some tasks first!');
+            return;
+        }
+
+        openPanel();
+
+        // Show scanning indicator
+        const welcome = document.getElementById('ai-welcome');
+        if (welcome) welcome.remove();
+        const scanWrapper = document.createElement('div');
+        scanWrapper.className = 'ai-msg ai-msg-assistant';
+        const scanBubble = document.createElement('div');
+        scanBubble.className = 'ai-bubble ai-scan-indicator';
+        scanBubble.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Scanning your tasks for automation opportunities… <span class="ai-cursor"></span>`;
+        scanWrapper.appendChild(scanBubble);
+        messagesEl.appendChild(scanWrapper);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        streaming = true;
+        sendBtn.disabled = true;
+
+        const taskList = projectTasks.map(t => `{"id":"${t.id}","text":${JSON.stringify(t.text)}}`).join('\n');
+
+        let fullText = '';
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [{ role: 'user', content: `Analyze these tasks and identify which ones could realistically be automated using free tools (Zapier free tier, Make free tier, Google Apps Script, iOS Shortcuts, browser extensions).\n\nTasks:\n${taskList}\n\nRespond ONLY with a raw JSON array — no markdown, no explanation:\n[{"id":"task-id","reason":"one sentence why"}]\n\nIf none are automatable, respond with: []` }],
+                    system: 'You are a task automation analyzer. You ONLY respond with a raw JSON array. No markdown fences, no explanation — just the JSON.'
+                })
+            });
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const reader  = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const evt = JSON.parse(data);
+                        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+                            fullText += evt.delta.text;
+                        }
+                    } catch {}
+                }
+            }
+        } catch (err) {
+            scanWrapper.remove();
+            appendBubble('assistant', `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Scan failed. Please try again.</span>`);
+            streaming = false;
+            sendBtn.disabled = false;
+            return;
+        }
+
+        streaming = false;
+        sendBtn.disabled = false;
+
+        // Parse JSON result
+        let found = [];
+        try {
+            const match = fullText.match(/\[[\s\S]*\]/);
+            if (match) found = JSON.parse(match[0]);
+        } catch {}
+
+        // Update automatable flags for this project
+        const foundIds = new Set(found.map(f => f.id));
+        tasks = tasks.map(t => {
+            if (t.projectId !== currentProjectId) return t;
+            return { ...t, automatable: foundIds.has(t.id) };
+        });
+        saveAll();
+        renderTasks();
+
+        // Replace scanning bubble with result card
+        scanWrapper.remove();
+        const resultBubble = appendBubble('assistant', '');
+        if (found.length === 0) {
+            resultBubble.innerHTML = `<strong>Scan complete.</strong> No clear automation opportunities found in your current tasks. Try adding more specific, repetitive tasks and scan again.`;
+        } else {
+            const taskLines = found.map(f => {
+                const t = tasks.find(t => t.id === f.id);
+                return `• <strong>${t ? escapeHtml(t.text) : f.id}</strong> — ${escapeHtml(f.reason)}`;
+            }).join('<br>');
+            resultBubble.innerHTML = `<strong>Found ${found.length} task${found.length > 1 ? 's' : ''} that could be automated!</strong><br><br>
+Look for the <i class="fa-solid fa-robot" style="color:var(--accent-primary);margin:0 2px"></i> icon next to them — click it to get a free, step-by-step setup guide for each one.<br><br>${taskLines}`;
+        }
+    }
+
+    // Expose to createTaskElement via bridge
+    aiActions.openGuide = openAutomationGuide;
+
+    // Wire scan button
+    const scanBtn = document.getElementById('ai-scan-btn');
+    if (scanBtn) scanBtn.addEventListener('click', runAutomationScan);
 
     // ---- Input events ----
     sendBtn.addEventListener('click', () => sendMessage());

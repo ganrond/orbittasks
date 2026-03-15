@@ -46,7 +46,8 @@ async function dbLoadAll() {
                 notes:       t.notes || '',
                 completedAt: t.completed_at || null,
                 order:       t.task_order ?? 0,
-                createdAt:   t.created_at
+                createdAt:   t.created_at,
+                automatable: t.automatable || false
             })),
             templates: templRes.data
         };
@@ -82,7 +83,8 @@ async function dbSaveTasks(tasksArr) {
             notes:        t.notes || '',
             completed_at: t.completedAt || null,
             task_order:   t.order ?? 0,
-            created_at:   t.createdAt || new Date().toISOString()
+            created_at:   t.createdAt || new Date().toISOString(),
+            automatable:  t.automatable || false
         }));
         const { error } = await _supabase.from('tasks').upsert(rows);
         if (error) console.warn('[DB] Erro ao salvar tarefas:', error);
