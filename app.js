@@ -272,15 +272,29 @@ function initPrioritySelector() {
 }
 
 // --- Event Binding ---
+function openSidebar() {
+    sidebar.classList.add('open');
+    const bd = document.getElementById('sidebar-backdrop');
+    if (bd) { bd.classList.add('active'); bd.style.display = 'block'; }
+}
+
+function closeSidebar() {
+    sidebar.classList.remove('open');
+    const bd = document.getElementById('sidebar-backdrop');
+    if (bd) { bd.classList.remove('active'); setTimeout(() => { bd.style.display = 'none'; }, 300); }
+}
+
 function bindEvents() {
     // Sidebar Mobile Toggle
-    menuToggle.addEventListener('click', () => sidebar.classList.add('open'));
-    closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('open'));
+    menuToggle.addEventListener('click', openSidebar);
+    closeSidebarBtn.addEventListener('click', closeSidebar);
+    const backdrop = document.getElementById('sidebar-backdrop');
+    if (backdrop) backdrop.addEventListener('click', closeSidebar);
 
     // Bottom Nav (mobile)
     const mobileMenuBtn = document.getElementById('mobile-menu-btn');
     const mobileHistoryBtnNav = document.getElementById('mobile-history-btn-nav');
-    if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', () => sidebar.classList.add('open'));
+    if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', openSidebar);
     if (mobileHistoryBtnNav) mobileHistoryBtnNav.addEventListener('click', showHistory);
 
     // Task submission
@@ -449,7 +463,7 @@ function switchProject(id) {
     const proj = projects.find(p => p.id === currentProjectId);
     currentProjectTitle.textContent = proj.name;
 
-    sidebar.classList.remove('open');
+    closeSidebar();
     renderSidebar();
 
     document.querySelector('[data-filter="all"]').click();
@@ -1084,7 +1098,7 @@ function exportData() {
 function showHistory() {
     workspaceView.classList.add('hidden');
     historyView.classList.remove('hidden');
-    sidebar.classList.remove('open');
+    closeSidebar();
     document.getElementById('mobile-history-btn-nav')?.classList.add('active');
     document.getElementById('mobile-menu-btn')?.classList.remove('active');
 
@@ -1402,8 +1416,8 @@ function handleVoiceCommand(command) {
         return;
     }
 
-    if (command === 'open sidebar') { sidebar.classList.add('open'); return; }
-    if (command === 'close sidebar') { sidebar.classList.remove('open'); return; }
+    if (command === 'open sidebar') { openSidebar(); return; }
+    if (command === 'close sidebar') { closeSidebar(); return; }
 }
 
 function createTaskFromVoice(text, projId = currentProjectId) {

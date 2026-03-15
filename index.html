@@ -23,6 +23,9 @@
         <i class="fa-solid fa-bars"></i>
     </button>
 
+    <!-- Sidebar backdrop (mobile) -->
+    <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
     <!-- Mobile Bottom Navigation -->
     <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
         <button class="bottom-nav-btn" id="mobile-menu-btn">
@@ -126,7 +129,7 @@
                     </button>
                 </div>
                 <div class="priority-row" id="priority-row">
-                    <span class="priority-label">Prioridade:</span>
+                    <span class="priority-label">Priority:</span>
                     <button type="button" class="prio-btn active" data-prio="">—</button>
                     <button type="button" class="prio-btn prio-high" data-prio="high">High</button>
                     <button type="button" class="prio-btn prio-medium" data-prio="medium">Medium</button>
@@ -261,7 +264,7 @@
     <div id="toast-container" class="toast-container"></div>
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
-    <!-- Configuração e banco de dados -->
+    <!-- Config and database -->
     <script src="config.js" defer></script>
     <script src="db.js" defer></script>
     <script src="app.js" defer></script>
