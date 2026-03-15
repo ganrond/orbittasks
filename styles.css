@@ -723,16 +723,52 @@ body {
 .primary-btn:hover { filter: brightness(1.08); box-shadow: var(--glow-primary); transform: translateY(-1px); }
 .primary-btn:active { transform: translateY(0); }
 
-/* Mobile FAB */
-.menu-toggle {
-    display: none; position: fixed; bottom: 2rem; right: 2rem;
-    width: 3.25rem; height: 3.25rem; border-radius: 50%;
-    background: var(--accent-primary); color: var(--bg-dark);
-    border: none; font-size: 1.1rem; z-index: 100;
-    box-shadow: var(--glow-primary); cursor: pointer;
-    transition: var(--transition-fast);
+/* Mobile FAB (legado, substituído pela bottom nav) */
+.menu-toggle { display: none; }
+
+/* ============================================================
+   MOBILE BOTTOM NAVIGATION
+   ============================================================ */
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 62px;
+    background: var(--glass-bg);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border-top: 1px solid var(--border);
+    z-index: 200;
+    align-items: stretch;
 }
-.menu-toggle:hover { filter: brightness(1.1); transform: scale(1.05); }
+
+.bottom-nav-btn {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.65rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    transition: var(--transition-fast);
+    padding: 0.5rem;
+    border-right: 1px solid var(--border);
+}
+.bottom-nav-btn:last-child { border-right: none; }
+.bottom-nav-btn i { font-size: 1.1rem; }
+.bottom-nav-btn:hover,
+.bottom-nav-btn.active {
+    color: var(--accent-primary);
+    background: var(--item-hover);
+}
 
 /* ============================================================
    HISTORY VIEW
@@ -876,13 +912,13 @@ body {
     }
     .sidebar.open { left: 0; box-shadow: 8px 0 48px rgba(0,0,0,0.6); }
     .close-sidebar { display: flex; }
-    .menu-toggle   { display: flex; align-items: center; justify-content: center; }
+    .mobile-bottom-nav { display: flex; }
 
     .app-container {
         padding: 1.5rem;
         border-radius: 14px;
         width: 100%;
-        margin-bottom: 6rem; /* espaço para o FAB */
+        margin-bottom: 5rem; /* espaço para a bottom nav */
     }
 
     .filters-actions { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
@@ -901,7 +937,7 @@ body {
         border-left: none;
         border-right: none;
         border-top: none;
-        margin-bottom: 6rem;
+        margin-bottom: 5rem;
     }
 
     /* Header */
@@ -998,7 +1034,8 @@ body {
     .app-container {
         padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
     }
-    .menu-toggle {
-        bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    .mobile-bottom-nav {
+        padding-bottom: env(safe-area-inset-bottom);
+        height: calc(62px + env(safe-area-inset-bottom));
     }
 }

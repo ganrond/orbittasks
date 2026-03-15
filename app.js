@@ -156,6 +156,12 @@ function bindEvents() {
     menuToggle.addEventListener('click', () => sidebar.classList.add('open'));
     closeSidebarBtn.addEventListener('click', () => sidebar.classList.remove('open'));
 
+    // Bottom Nav (mobile)
+    const mobileMenuBtn = document.getElementById('mobile-menu-btn');
+    const mobileHistoryBtnNav = document.getElementById('mobile-history-btn-nav');
+    if (mobileMenuBtn) mobileMenuBtn.addEventListener('click', () => sidebar.classList.add('open'));
+    if (mobileHistoryBtnNav) mobileHistoryBtnNav.addEventListener('click', showHistory);
+
     // Task submission
     taskForm.addEventListener('submit', addTask);
 
@@ -685,7 +691,9 @@ function escapeHTML(str) {
 function showHistory() {
     workspaceView.classList.add('hidden');
     historyView.classList.remove('hidden');
-    sidebar.classList.remove('open'); // Close mobile menu if open
+    sidebar.classList.remove('open');
+    document.getElementById('mobile-history-btn-nav')?.classList.add('active');
+    document.getElementById('mobile-menu-btn')?.classList.remove('active');
     document.querySelectorAll('.app-container > .filters-actions, .app-container > .task-list-container').forEach(el => {
         // Keep the rest of the workspace clean out of the way
     });
@@ -696,6 +704,7 @@ function showHistory() {
 function showWorkspace() {
     historyView.classList.add('hidden');
     workspaceView.classList.remove('hidden');
+    document.getElementById('mobile-history-btn-nav')?.classList.remove('active');
 }
 
 function renderHistory() {

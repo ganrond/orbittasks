@@ -18,10 +18,22 @@
         <div class="glow-orb orb-2"></div>
     </div>
 
-    <!-- Mobile menu toggle -->
-    <button class="menu-toggle" id="menu-toggle">
+    <!-- Mobile menu toggle (hidden, substituído pela bottom nav) -->
+    <button class="menu-toggle" id="menu-toggle" aria-hidden="true">
         <i class="fa-solid fa-bars"></i>
     </button>
+
+    <!-- Mobile Bottom Navigation -->
+    <nav class="mobile-bottom-nav" id="mobile-bottom-nav">
+        <button class="bottom-nav-btn" id="mobile-menu-btn">
+            <i class="fa-solid fa-bars"></i>
+            <span>Menu</span>
+        </button>
+        <button class="bottom-nav-btn" id="mobile-history-btn-nav">
+            <i class="fa-solid fa-clock-rotate-left"></i>
+            <span>Histórico</span>
+        </button>
+    </nav>
 
     <div class="app-layout">
         <!-- Sidebar -->
