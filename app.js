@@ -2102,7 +2102,11 @@ Structure your response:
                 })
             });
 
-            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            if (!response.ok) {
+                let errDetail = `HTTP ${response.status}`;
+                try { const j = await response.json(); errDetail = j.error || errDetail; } catch {}
+                throw new Error(errDetail);
+            }
 
             const reader  = response.body.getReader();
             const decoder = new TextDecoder();
@@ -2127,8 +2131,10 @@ Structure your response:
                 }
             }
         } catch (err) {
+            console.error('[Scan error]', err);
             scanWrapper.remove();
-            appendBubble('assistant', `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Scan failed. Please try again.</span>`);
+            const errBubble = appendBubble('assistant', '');
+            errBubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Scan failed: ${escapeHtml(err.message)}</span>`;
             streaming = false;
             sendBtn.disabled = false;
             return;
