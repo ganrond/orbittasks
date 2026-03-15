@@ -1331,11 +1331,21 @@ function initVoiceControl() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     const voiceStatusEl = document.getElementById('voice-status');
 
+    const helpToggle = document.getElementById('voice-help-toggle');
+    const helpPanel  = document.getElementById('voice-help');
+
+    // Wire toggle button
+    if (helpToggle && helpPanel) {
+        helpToggle.addEventListener('click', () => {
+            const isOpen = helpPanel.classList.toggle('open');
+            helpToggle.classList.toggle('active', isOpen);
+        });
+    }
+
     if (!SpeechRecognition) {
         console.warn('Speech Recognition API not supported in this browser.');
         if (voiceBtn) voiceBtn.style.display = 'none';
-        const help = document.getElementById('voice-help');
-        if (help) help.style.display = 'none';
+        if (helpToggle) helpToggle.style.display = 'none';
         return;
     }
 

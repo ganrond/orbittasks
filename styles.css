@@ -455,11 +455,39 @@ body {
 .add-btn:hover { transform: scale(1.06); box-shadow: var(--glow-primary); filter: brightness(1.1); }
 .add-btn:active { transform: scale(0.95); }
 
+.voice-help-toggle {
+    margin-left: auto;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    border-radius: var(--radius-sm);
+    padding: 0.18rem 0.45rem;
+    font-size: 0.68rem;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 0.2rem;
+    transition: var(--transition-fast);
+}
+.voice-help-toggle:hover,
+.voice-help-toggle.active {
+    border-color: var(--border-accent);
+    color: var(--accent-primary);
+    background: rgba(77,255,196,0.06);
+}
+
 .voice-help {
-    margin-top: 0.75rem;
     display: flex;
     flex-direction: column;
     gap: 0.45rem;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    transition: max-height 0.3s ease, opacity 0.2s ease, margin-top 0.3s ease;
+    margin-top: 0;
+}
+.voice-help.open {
+    max-height: 150px;
+    opacity: 1;
+    margin-top: 0.65rem;
 }
 .voice-help-triggers {
     display: flex;
