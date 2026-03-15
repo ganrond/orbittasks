@@ -101,6 +101,15 @@
                             <span id="completed-count" class="stat-number">0</span>
                             <span class="stat-label">Completed</span>
                         </div>
+                        <div class="duration-picker">
+                            <span class="stat-label">Foco</span>
+                            <div class="duration-btns">
+                                <button type="button" class="duration-btn" data-mins="15">15m</button>
+                                <button type="button" class="duration-btn active" data-mins="25">25m</button>
+                                <button type="button" class="duration-btn" data-mins="45">45m</button>
+                                <button type="button" class="duration-btn" data-mins="60">60m</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -115,6 +124,13 @@
                     <button type="submit" class="add-btn" aria-label="Add Task">
                         <i class="fa-solid fa-plus"></i>
                     </button>
+                </div>
+                <div class="priority-row" id="priority-row">
+                    <span class="priority-label">Prioridade:</span>
+                    <button type="button" class="prio-btn active" data-prio="">—</button>
+                    <button type="button" class="prio-btn prio-high" data-prio="high">Alta</button>
+                    <button type="button" class="prio-btn prio-medium" data-prio="medium">Média</button>
+                    <button type="button" class="prio-btn prio-low" data-prio="low">Baixa</button>
                 </div>
                 <div id="voice-help" class="voice-help">
                     <p><strong>Wake word:</strong> "Hey Orbit" &nbsp;|&nbsp; <strong>Stop:</strong> "Goodbye Orbit"</p>
@@ -141,6 +157,9 @@
                     </div>
                 </div>
                 <div class="project-actions">
+                    <button id="clear-completed-btn" class="text-btn outline" title="Limpar tarefas concluídas">
+                        <i class="fa-solid fa-broom"></i> <span class="action-text">Limpar</span>
+                    </button>
                     <button id="complete-all-btn" class="text-btn outline" title="Complete All Tasks">
                         <i class="fa-solid fa-check-double"></i> <span class="action-text">Complete All</span>
                     </button>
@@ -174,6 +193,9 @@
                         <p>Total time breakdown by project.</p>
                     </div>
                     <div class="header-controls">
+                        <button id="export-btn" class="text-btn outline">
+                            <i class="fa-solid fa-download"></i> <span class="action-text">Exportar</span>
+                        </button>
                         <button id="back-to-workspace-btn" class="text-btn outline back-btn">
                             <i class="fa-solid fa-arrow-left"></i> Back
                         </button>
@@ -236,6 +258,8 @@
     </div>
 
     <!-- Supabase SDK -->
+    <div id="toast-container" class="toast-container"></div>
+
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2" defer></script>
     <!-- Configuração e banco de dados -->
     <script src="config.js" defer></script>

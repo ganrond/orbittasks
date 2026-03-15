@@ -36,12 +36,17 @@ async function dbLoadAll() {
             projects: projRes.data,
             // Converte snake_case do banco para camelCase do app
             tasks: taskRes.data.map(t => ({
-                id:        t.id,
-                projectId: t.project_id,
-                text:      t.text,
-                completed: t.completed,
-                timeSpent: t.time_spent,
-                createdAt: t.created_at
+                id:          t.id,
+                projectId:   t.project_id,
+                text:        t.text,
+                completed:   t.completed,
+                timeSpent:   t.time_spent,
+                priority:    t.priority || null,
+                dueDate:     t.due_date || null,
+                notes:       t.notes || '',
+                completedAt: t.completed_at || null,
+                order:       t.task_order ?? 0,
+                createdAt:   t.created_at
             })),
             templates: templRes.data
         };
@@ -67,12 +72,17 @@ async function dbSaveTasks(tasksArr) {
     if (!_supabase || !tasksArr.length) return;
     try {
         const rows = tasksArr.map(t => ({
-            id:         t.id,
-            project_id: t.projectId,
-            text:       t.text,
-            completed:  t.completed,
-            time_spent: t.timeSpent || 0,
-            created_at: t.createdAt || new Date().toISOString()
+            id:           t.id,
+            project_id:   t.projectId,
+            text:         t.text,
+            completed:    t.completed,
+            time_spent:   t.timeSpent || 0,
+            priority:     t.priority || null,
+            due_date:     t.dueDate || null,
+            notes:        t.notes || '',
+            completed_at: t.completedAt || null,
+            task_order:   t.order ?? 0,
+            created_at:   t.createdAt || new Date().toISOString()
         }));
         const { error } = await _supabase.from('tasks').upsert(rows);
         if (error) console.warn('[DB] Erro ao salvar tarefas:', error);
