@@ -57,16 +57,6 @@
             </div>
 
             <div class="sidebar-section">
-                <div class="section-header">
-                    <h3>Templates</h3>
-                    <button id="add-template-btn" class="icon-btn" title="New Template"><i class="fa-solid fa-plus"></i></button>
-                </div>
-                <ul id="template-list" class="side-list">
-                    <!-- Templates injected here -->
-                </ul>
-            </div>
-
-            <div class="sidebar-section">
                 <button id="nav-history-btn" class="history-nav-btn"><i class="fa-solid fa-clock-rotate-left"></i> View History</button>
             </div>
         </aside>
@@ -182,9 +172,6 @@
                     <button id="complete-all-btn" class="text-btn outline" title="Complete All Tasks">
                         <i class="fa-solid fa-check-double"></i> <span class="action-text">Complete All</span>
                     </button>
-                    <button id="save-template-btn" class="text-btn outline" title="Save as Template">
-                        <i class="fa-solid fa-layer-group"></i> <span class="action-text">Template</span>
-                    </button>
                     <button id="delete-project-btn" class="text-btn danger" title="Delete Project">
                         <i class="fa-solid fa-trash"></i> <span class="action-text">Delete</span>
                     </button>
@@ -246,34 +233,10 @@
                     <label for="project-name-input">Project Name</label>
                     <input type="text" id="project-name-input" required placeholder="e.g. Work Tasks">
                 </div>
-                <div class="form-group">
-                    <label for="project-template-select">Start from Template (Optional)</label>
-                    <select id="project-template-select">
-                        <option value="">-- Blank Project --</option>
-                    </select>
-                </div>
                 <button type="submit" class="btn primary-btn">Create Project</button>
             </form>
         </div>
 
-        <!-- New Template Modal -->
-        <div id="template-modal" class="modal">
-            <div class="modal-header">
-                <h2>New Template</h2>
-                <button class="close-modal"><i class="fa-solid fa-xmark"></i></button>
-            </div>
-            <form id="template-form">
-                <div class="form-group">
-                    <label for="template-name-input">Template Name</label>
-                    <input type="text" id="template-name-input" required placeholder="e.g. Grocery Trip">
-                </div>
-                <div class="form-group">
-                    <label for="template-tasks-input">Tasks (One per line)</label>
-                    <textarea id="template-tasks-input" rows="5" placeholder="Apples&#10;Bananas&#10;Milk"></textarea>
-                </div>
-                <button type="submit" class="btn primary-btn">Save Template</button>
-            </form>
-        </div>
     </div>
 
     <!-- ===== AI ASSISTANT ===== -->

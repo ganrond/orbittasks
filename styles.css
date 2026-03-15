@@ -1322,12 +1322,13 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 .list-item:hover .item-archive { opacity: 1; }
 .item-archive:hover { color: var(--accent-secondary); background: var(--item-hover); }
 
-.item-restore {
+.item-clone, .item-restore {
     background: none; border: none; color: var(--text-muted); cursor: pointer;
     font-size: 0.7rem; width: 20px; height: 20px;
     display: flex; align-items: center; justify-content: center;
     border-radius: 4px; transition: var(--transition-fast);
 }
+.item-clone:hover  { color: var(--accent-secondary); background: var(--item-hover); }
 .item-restore:hover { color: var(--accent-primary); background: var(--item-hover); }
 
 .item-delete-archived {

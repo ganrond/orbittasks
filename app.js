@@ -321,7 +321,6 @@ function bindEvents() {
 
     // Project Actions
     deleteProjectBtn.addEventListener('click', confirmDeleteProject);
-    saveTemplateBtn.addEventListener('click', prepSaveAsTemplate);
     if (completeAllBtn) completeAllBtn.addEventListener('click', completeAllTasks);
     if (clearCompletedBtn) clearCompletedBtn.addEventListener('click', clearCompletedTasks);
 
@@ -336,7 +335,6 @@ function bindEvents() {
 
     // Project Button
     addProjectBtn.addEventListener('click', openProjectModal);
-    addTemplateBtn.addEventListener('click', () => openModal(templateModal));
 
     closeModals.forEach(btn => btn.addEventListener('click', closeAllModals));
     modalOverlay.addEventListener('click', (e) => {
@@ -345,7 +343,6 @@ function bindEvents() {
 
     // Forms inside Modals
     projectForm.addEventListener('submit', handleCreateProject);
-    templateForm.addEventListener('submit', handleCreateTemplate);
 }
 
 // --- User Interface & Rendering ---
@@ -423,12 +420,17 @@ function renderSidebar() {
                 <div class="project-item-inner">
                     <span class="item-name">${escapeHTML(p.name)}</span>
                     <div class="project-item-controls">
+                        <button class="item-clone" title="Clone as new project"><i class="fa-solid fa-copy"></i></button>
                         <button class="item-restore" title="Restore project"><i class="fa-solid fa-rotate-left"></i></button>
                         <button class="item-delete-archived" title="Delete permanently"><i class="fa-solid fa-trash"></i></button>
                         <span class="project-count">${projTasks.length} tasks</span>
                     </div>
                 </div>
             `;
+            li.querySelector('.item-clone').addEventListener('click', (e) => {
+                e.stopPropagation();
+                cloneProject(p.id);
+            });
             li.querySelector('.item-restore').addEventListener('click', (e) => {
                 e.stopPropagation();
                 restoreProject(p.id);
@@ -453,29 +455,6 @@ function renderSidebar() {
         projectListEl.parentElement.appendChild(section);
     }
 
-    // Render Templates
-    templateListEl.innerHTML = '';
-    templates.forEach(t => {
-        const li = document.createElement('li');
-        li.className = 'list-item';
-        li.innerHTML = `
-            <span class="item-name"><i class="fa-solid fa-layer-group" style="margin-right:8px; font-size: 0.8em;"></i> ${escapeHTML(t.name)}</span>
-            <button class="item-delete" title="Delete Template"><i class="fa-solid fa-trash"></i></button>
-        `;
-
-        li.querySelector('.item-delete').onclick = (e) => {
-            e.stopPropagation();
-            deleteTemplate(t.id);
-        };
-
-        li.onclick = () => {
-            openProjectModal();
-            projectTemplateSelect.value = t.id;
-            document.getElementById('project-name-input').value = t.name;
-        };
-
-        templateListEl.appendChild(li);
-    });
 }
 
 function startRenameProject(projectId, liEl) {
@@ -824,18 +803,9 @@ function closeAllModals() {
     if (modalOverlay) modalOverlay.classList.remove('active');
     document.querySelectorAll('.modal').forEach(m => m.classList.remove('active'));
     if (projectForm) projectForm.reset();
-    if (templateForm) templateForm.reset();
 }
 
 function openProjectModal() {
-    projectTemplateSelect.innerHTML = '<option value="">-- Blank Project --</option>';
-    templates.forEach(t => {
-        const option = document.createElement('option');
-        option.value = t.id;
-        option.textContent = t.name;
-        projectTemplateSelect.appendChild(option);
-    });
-
     openModal(projectModal);
     setTimeout(() => document.getElementById('project-name-input').focus(), 100);
 }
@@ -845,32 +815,10 @@ function openProjectModal() {
 function handleCreateProject(e) {
     e.preventDefault();
     const name = document.getElementById('project-name-input').value.trim();
-    const templateId = projectTemplateSelect.value;
-
     if (!name) return;
 
     const newProjectId = generateId();
     projects.push({ id: newProjectId, name });
-
-    if (templateId) {
-        const tpl = templates.find(t => t.id === templateId);
-        if (tpl && tpl.tasks) {
-            const newTasks = tpl.tasks.map((text, i) => ({
-                id:          generateId(),
-                projectId:   newProjectId,
-                text,
-                completed:   false,
-                timeSpent:   0,
-                priority:    null,
-                dueDate:     null,
-                notes:       '',
-                completedAt: null,
-                order:       i,
-                createdAt:   new Date().toISOString()
-            }));
-            tasks.push(...newTasks);
-        }
-    }
 
     saveAll();
     closeAllModals();
@@ -920,47 +868,35 @@ function permanentlyDeleteProject(id) {
     renderSidebar();
 }
 
-function handleCreateTemplate(e) {
-    e.preventDefault();
-    const name = document.getElementById('template-name-input').value.trim();
-    const tasksRaw = document.getElementById('template-tasks-input').value;
+function cloneProject(sourceId) {
+    const source = projects.find(p => p.id === sourceId);
+    if (!source) return;
 
-    if (!name) return;
+    const newProjectId = generateId();
+    projects.push({ id: newProjectId, name: source.name, archived: false });
 
-    const templateTasks = tasksRaw.split('\n')
-                                  .map(t => t.trim())
-                                  .filter(t => t.length > 0);
-
-    templates.push({
-        id: generateId(),
-        name,
-        tasks: templateTasks.length > 0 ? templateTasks : []
-    });
+    // Clone tasks: keep text, priority, notes — reset progress
+    const sourceTasks = tasks.filter(t => t.projectId === sourceId);
+    const clonedTasks = sourceTasks.map((t, i) => ({
+        id:          generateId(),
+        projectId:   newProjectId,
+        text:        t.text,
+        completed:   false,
+        timeSpent:   0,
+        priority:    t.priority || null,
+        dueDate:     null,
+        notes:       t.notes || '',
+        completedAt: null,
+        order:       t.order ?? i,
+        createdAt:   new Date().toISOString(),
+        automatable: t.automatable || false
+    }));
+    tasks.push(...clonedTasks);
 
     saveAll();
-    closeAllModals();
     renderSidebar();
-    showToast(`Template "${name}" salvo!`, 'success');
-}
-
-function prepSaveAsTemplate() {
-    const curProj  = projects.find(p => p.id === currentProjectId);
-    const curTasks = tasks.filter(t => t.projectId === currentProjectId).map(t => t.text);
-
-    document.getElementById('template-name-input').value = `${curProj.name} Template`;
-    document.getElementById('template-tasks-input').value = curTasks.join('\n');
-
-    openModal(templateModal);
-}
-
-function deleteTemplate(id) {
-    if (confirm('Delete this template?')) {
-        if (dbEnabled) dbDeleteTemplate(id);
-        templates = templates.filter(t => t.id !== id);
-        saveAll();
-        renderSidebar();
-        showToast('Template deleted.', 'warning');
-    }
+    showToast(`Cloned "${source.name}" as a new project!`, 'success');
+    switchProject(newProjectId);
 }
 
 // --- Task Operations ---
