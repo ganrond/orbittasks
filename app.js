@@ -69,11 +69,9 @@ const menuToggle = document.getElementById('menu-toggle');
 const closeSidebarBtn = document.getElementById('close-sidebar');
 
 const projectListEl = document.getElementById('project-list');
-const templateListEl = document.getElementById('template-list');
 
 const currentProjectTitle = document.getElementById('current-project-title');
 const deleteProjectBtn = document.getElementById('delete-project-btn');
-const saveTemplateBtn = document.getElementById('save-template-btn');
 const completeAllBtn = document.getElementById('complete-all-btn');
 const clearCompletedBtn = document.getElementById('clear-completed-btn');
 
@@ -104,12 +102,8 @@ const exportBtn = document.getElementById('export-btn');
 // Modals
 const modalOverlay = document.getElementById('modal-overlay');
 const projectModal = document.getElementById('project-modal');
-const templateModal = document.getElementById('template-modal');
 const projectForm = document.getElementById('project-form');
-const templateForm = document.getElementById('template-form');
 const addProjectBtn = document.getElementById('add-project-btn');
-const addTemplateBtn = document.getElementById('add-template-btn');
-const projectTemplateSelect = document.getElementById('project-template-select');
 const closeModals = document.querySelectorAll('.close-modal');
 
 // === TOAST SYSTEM ===
@@ -508,7 +502,7 @@ function switchProject(id) {
     saveAll();
 
     const proj = projects.find(p => p.id === currentProjectId);
-    currentProjectTitle.textContent = proj.name;
+    if (currentProjectTitle) currentProjectTitle.textContent = proj?.name ?? '';
 
     closeSidebar();
     renderSidebar();
@@ -1712,15 +1706,14 @@ function initAI() {
         mpFileCard.classList.add('hidden');
         mpDropzone.classList.add('hidden');
         mpEditor.classList.remove('hidden');
-        if (mpTextarea) mpTextarea.value = localStorage.getItem('orbitMasterPrompt') || '';
-        mpTextarea.focus();
+        if (mpTextarea) { mpTextarea.value = localStorage.getItem('orbitMasterPrompt') || ''; mpTextarea.focus(); }
     });
 
     // "type manually instead" link
     mpTypeBtn.addEventListener('click', () => {
         mpDropzone.classList.add('hidden');
         mpEditor.classList.remove('hidden');
-        mpTextarea.focus();
+        if (mpTextarea) mpTextarea.focus();
     });
 
     // Save from editor
