@@ -945,6 +945,12 @@ body {
         font-size: 0.8rem;
     }
 
+    /* Dropdown de tema: abre para a direita no mobile */
+    .theme-dropdown {
+        right: auto;
+        left: 0;
+    }
+
     .project-actions { gap: 0.35rem; }
     .text-btn        { padding: 0.45rem 0.65rem; font-size: 0.78rem; }
     /* Esconde labels de texto nos botões de ação — só ícones */
