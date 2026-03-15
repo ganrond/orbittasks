@@ -136,8 +136,20 @@
                     <button type="button" class="prio-btn prio-low" data-prio="low">Low</button>
                 </div>
                 <div id="voice-help" class="voice-help">
-                    <p><strong>Wake word:</strong> "Hey Orbit" &nbsp;|&nbsp; <strong>Stop:</strong> "Goodbye Orbit"</p>
-                    <small>"Add task [name]", "Complete [name]", "Switch to [project]", "New project [name]", "Delete task [name]", "Clear completed", "Open/Close sidebar"</small>
+                    <div class="voice-help-triggers">
+                        <span class="voice-chip voice-chip-wake"><i class="fa-solid fa-microphone-lines"></i> Hey Orbit</span>
+                        <span class="voice-chip voice-chip-stop"><i class="fa-solid fa-circle-stop"></i> Goodbye Orbit</span>
+                    </div>
+                    <div class="voice-help-cmds">
+                        <span class="voice-cmd">Add task [name]</span>
+                        <span class="voice-cmd">Complete [name]</span>
+                        <span class="voice-cmd">Delete task [name]</span>
+                        <span class="voice-cmd">Switch to [project]</span>
+                        <span class="voice-cmd">New project [name]</span>
+                        <span class="voice-cmd">Clear completed</span>
+                        <span class="voice-cmd">Open sidebar</span>
+                        <span class="voice-cmd">Close sidebar</span>
+                    </div>
                 </div>
             </form>
 
