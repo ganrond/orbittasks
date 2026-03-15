@@ -44,8 +44,9 @@ CREATE POLICY "Acesso publico a templates"  ON public.templates  FOR ALL USING (
 -- ATUALIZAÇÃO: Novas colunas para tarefas
 -- Se a tabela já existe, rode estes comandos no SQL Editor do Supabase:
 -- =====================================================
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS priority TEXT DEFAULT NULL;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS due_date DATE DEFAULT NULL;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS notes TEXT DEFAULT '';
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ DEFAULT NULL;
-ALTER TABLE public.tasks ADD COLUMN IF NOT EXISTS task_order INTEGER DEFAULT 0;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS priority     TEXT      DEFAULT NULL;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS due_date     DATE      DEFAULT NULL;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS notes        TEXT      DEFAULT '';
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS task_order   INTEGER   DEFAULT 0;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS archived     BOOLEAN   DEFAULT FALSE;

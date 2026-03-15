@@ -33,7 +33,7 @@ async function dbLoadAll() {
         }
 
         return {
-            projects: projRes.data,
+            projects: projRes.data.map(p => ({ ...p, archived: p.archived ?? false })),
             // Converte snake_case do banco para camelCase do app
             tasks: taskRes.data.map(t => ({
                 id:          t.id,
@@ -61,7 +61,7 @@ async function dbSaveProjects(projectsArr) {
     if (!_supabase || !projectsArr.length) return;
     try {
         const { error } = await _supabase.from('projects').upsert(
-            projectsArr.map(p => ({ id: p.id, name: p.name, created_at: p.created_at || new Date().toISOString() }))
+            projectsArr.map(p => ({ id: p.id, name: p.name, archived: p.archived ?? false, created_at: p.created_at || new Date().toISOString() }))
         );
         if (error) console.warn('[DB] Erro ao salvar projetos:', error);
     } catch (e) { console.warn('[DB] dbSaveProjects:', e); }

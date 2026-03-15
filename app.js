@@ -30,8 +30,8 @@ try {
 if (projects.length === 0) projects = [...defaultProjects];
 if (templates.length === 0) templates = [...defaultTemplates];
 
-// Backward compat: ensure all tasks have required fields
-tasks = tasks.map((t, i) => ({
+// Backward compat: ensure all tasks and projects have required fields
+tasks    = tasks.map((t, i) => ({
     priority:    null,
     dueDate:     null,
     notes:       '',
@@ -40,6 +40,7 @@ tasks = tasks.map((t, i) => ({
     ...t,
     projectId: t.projectId || projects[0]?.id
 }));
+projects = projects.map(p => ({ archived: false, ...p }));
 
 let currentProjectId = localStorage.getItem('orbitCurrentProject') || projects[0]?.id;
 let currentFilter = 'all';
@@ -349,9 +350,12 @@ function bindEvents() {
 // --- User Interface & Rendering ---
 
 function renderSidebar() {
-    // Render Projects
+    // Render Active Projects
     projectListEl.innerHTML = '';
-    projects.forEach(p => {
+    const activeProjects   = projects.filter(p => !p.archived);
+    const archivedProjects = projects.filter(p => p.archived);
+
+    activeProjects.forEach(p => {
         const projTasks = tasks.filter(t => t.projectId === p.id);
         const total = projTasks.length;
         const done  = projTasks.filter(t => t.completed).length;
@@ -365,27 +369,88 @@ function renderSidebar() {
             <div class="project-item-inner">
                 <span class="item-name">${escapeHTML(p.name)}</span>
                 <div class="project-item-controls">
-                    <button class="item-rename" title="Rename"><i class="fa-solid fa-pen"></i></button>
+                    <button class="item-archive" title="Archive project"><i class="fa-solid fa-box-archive"></i></button>
+                    <button class="item-rename"  title="Rename"><i class="fa-solid fa-pen"></i></button>
                     <span class="project-count">${done}/${total}</span>
                 </div>
             </div>
             ${total > 0 ? `<div class="project-progress-bar"><div class="project-progress-fill" style="width: ${pct}%"></div></div>` : ''}
         `;
 
-        // Click on item-inner (not rename btn) → switch project
         li.querySelector('.project-item-inner').addEventListener('click', (e) => {
-            if (!e.target.closest('.item-rename')) {
+            if (!e.target.closest('.item-rename') && !e.target.closest('.item-archive')) {
                 switchProject(p.id);
             }
         });
-
         li.querySelector('.item-rename').addEventListener('click', (e) => {
             e.stopPropagation();
             startRenameProject(p.id, li);
         });
+        li.querySelector('.item-archive').addEventListener('click', (e) => {
+            e.stopPropagation();
+            archiveProject(p.id);
+        });
 
         projectListEl.appendChild(li);
     });
+
+    // Render Archived section (collapsible)
+    const existingArchived = projectListEl.parentElement.querySelector('.archived-section');
+    if (existingArchived) existingArchived.remove();
+
+    if (archivedProjects.length > 0) {
+        const section = document.createElement('div');
+        section.className = 'archived-section';
+
+        const header = document.createElement('button');
+        header.className = 'archived-header';
+        header.innerHTML = `
+            <i class="fa-solid fa-box-archive"></i>
+            <span>Archived</span>
+            <span class="archived-count">${archivedProjects.length}</span>
+            <i class="fa-solid fa-chevron-down archived-chevron"></i>
+        `;
+
+        const list = document.createElement('ul');
+        list.className = 'archived-list';
+
+        archivedProjects.forEach(p => {
+            const projTasks = tasks.filter(t => t.projectId === p.id);
+            const li = document.createElement('li');
+            li.className = 'list-item archived-item';
+            li.innerHTML = `
+                <div class="project-item-inner">
+                    <span class="item-name">${escapeHTML(p.name)}</span>
+                    <div class="project-item-controls">
+                        <button class="item-restore" title="Restore project"><i class="fa-solid fa-rotate-left"></i></button>
+                        <button class="item-delete-archived" title="Delete permanently"><i class="fa-solid fa-trash"></i></button>
+                        <span class="project-count">${projTasks.length} tasks</span>
+                    </div>
+                </div>
+            `;
+            li.querySelector('.item-restore').addEventListener('click', (e) => {
+                e.stopPropagation();
+                restoreProject(p.id);
+            });
+            li.querySelector('.item-delete-archived').addEventListener('click', (e) => {
+                e.stopPropagation();
+                permanentlyDeleteProject(p.id);
+            });
+            list.appendChild(li);
+        });
+
+        let open = false;
+        header.addEventListener('click', () => {
+            open = !open;
+            list.classList.toggle('hidden', !open);
+            header.querySelector('.archived-chevron').style.transform = open ? 'rotate(180deg)' : '';
+        });
+        list.classList.add('hidden');
+
+        section.appendChild(header);
+        section.appendChild(list);
+        projectListEl.parentElement.appendChild(section);
+    }
 
     // Render Templates
     templateListEl.innerHTML = '';
@@ -437,7 +502,7 @@ function startRenameProject(projectId, liEl) {
             if (projectId === currentProjectId) {
                 currentProjectTitle.textContent = newName;
             }
-            showToast(`Projeto renomeado para "${newName}"`, 'success');
+            showToast(`Renamed to "${newName}"`, 'success');
         }
         renderSidebar();
     };
@@ -450,11 +515,13 @@ function startRenameProject(projectId, liEl) {
 }
 
 function switchProject(id) {
-    if (!projects.find(p => p.id === id)) {
-        if (projects.length === 0) {
-            projects.push({ id: generateId(), name: 'Main Tasks' });
+    const activeProjects = projects.filter(p => !p.archived);
+    // Don't switch to an archived project
+    if (!activeProjects.find(p => p.id === id)) {
+        if (activeProjects.length === 0) {
+            projects.push({ id: generateId(), name: 'Main Tasks', archived: false });
         }
-        id = projects[0].id;
+        id = activeProjects[0]?.id || projects[0].id;
     }
 
     currentProjectId = id;
@@ -468,9 +535,10 @@ function switchProject(id) {
 
     document.querySelector('[data-filter="all"]').click();
 
-    deleteProjectBtn.disabled = projects.length <= 1;
-    deleteProjectBtn.style.opacity = projects.length <= 1 ? '0.5' : '1';
-    deleteProjectBtn.style.cursor = projects.length <= 1 ? 'not-allowed' : 'pointer';
+    const canDelete = activeProjects.length > 1;
+    deleteProjectBtn.disabled = !canDelete;
+    deleteProjectBtn.style.opacity = canDelete ? '1' : '0.5';
+    deleteProjectBtn.style.cursor  = canDelete ? 'pointer' : 'not-allowed';
 }
 
 function renderTasks() {
@@ -796,15 +864,45 @@ function handleCreateProject(e) {
 }
 
 function confirmDeleteProject() {
-    if (projects.length <= 1) return;
+    const activeProjects = projects.filter(p => !p.archived);
+    if (activeProjects.length <= 1) return;
     const proj = projects.find(p => p.id === currentProjectId);
-    if (confirm(`Delete project "${proj?.name}" and all its tasks?`)) {
-        if (dbEnabled) dbDeleteProject(currentProjectId);
-        tasks = tasks.filter(t => t.projectId !== currentProjectId);
-        projects = projects.filter(p => p.id !== currentProjectId);
-        showToast('Project deleted.', 'warning');
-        switchProject(projects[0].id);
+    if (confirm(`Archive "${proj?.name}"? It will be hidden but preserved, or you can delete it permanently from the Archived section.`)) {
+        archiveProject(currentProjectId);
     }
+}
+
+function archiveProject(id) {
+    projects = projects.map(p => p.id === id ? { ...p, archived: true } : p);
+    saveAll();
+    const proj = projects.find(p => p.id === id);
+    showToast(`"${proj?.name}" archived.`, 'info');
+    // If we archived the current project, switch to another active one
+    if (id === currentProjectId) {
+        const nextActive = projects.find(p => !p.archived);
+        if (nextActive) switchProject(nextActive.id);
+    } else {
+        renderSidebar();
+    }
+}
+
+function restoreProject(id) {
+    projects = projects.map(p => p.id === id ? { ...p, archived: false } : p);
+    saveAll();
+    const proj = projects.find(p => p.id === id);
+    showToast(`"${proj?.name}" restored!`, 'success');
+    renderSidebar();
+}
+
+function permanentlyDeleteProject(id) {
+    const proj = projects.find(p => p.id === id);
+    if (!confirm(`Permanently delete "${proj?.name}" and all its tasks? This cannot be undone.`)) return;
+    if (dbEnabled) dbDeleteProject(id);
+    tasks    = tasks.filter(t => t.projectId !== id);
+    projects = projects.filter(p => p.id !== id);
+    saveAll();
+    showToast(`"${proj?.name}" permanently deleted.`, 'warning');
+    renderSidebar();
 }
 
 function handleCreateTemplate(e) {
