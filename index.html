@@ -260,6 +260,81 @@
         </div>
     </div>
 
+    <!-- ===== AI ASSISTANT ===== -->
+    <!-- Floating trigger button -->
+    <button id="ai-fab" class="ai-fab" title="AI Assistant" aria-label="Open AI Assistant">
+        <i class="fa-solid fa-robot"></i>
+        <span class="ai-fab-pulse"></span>
+    </button>
+
+    <!-- Backdrop (click to close) -->
+    <div id="ai-backdrop" class="ai-backdrop"></div>
+
+    <!-- Slide-in chat panel -->
+    <div id="ai-panel" class="ai-panel" aria-hidden="true">
+        <div class="ai-panel-header">
+            <div class="ai-panel-title">
+                <i class="fa-solid fa-robot"></i>
+                <span>Orbit AI</span>
+                <span class="ai-model-badge">opus</span>
+            </div>
+            <div class="ai-panel-actions">
+                <button id="ai-settings-btn" class="icon-btn" title="MasterPrompt settings">
+                    <i class="fa-solid fa-sliders"></i>
+                </button>
+                <button id="ai-new-chat-btn" class="icon-btn" title="New conversation">
+                    <i class="fa-solid fa-rotate-right"></i>
+                </button>
+                <button id="ai-close-btn" class="icon-btn" title="Close">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- MasterPrompt settings (collapsed by default) -->
+        <div id="ai-settings-panel" class="ai-settings-panel">
+            <label class="ai-settings-label">
+                <i class="fa-solid fa-id-card"></i> MasterPrompt
+                <span class="ai-settings-sublabel">Tell the AI who you are and what matters to you. It will use this context on every conversation.</span>
+            </label>
+            <textarea id="ai-masterprompt" class="ai-masterprompt"
+                placeholder="e.g.: I'm a product designer focused on shipping fast. My main goal right now is launching v2 by end of month. I prefer direct, no-fluff advice. My top priorities: 1) user growth 2) bug fixes 3) documentation."></textarea>
+            <button id="ai-save-masterprompt-btn" class="btn primary-btn ai-save-btn">
+                <i class="fa-solid fa-floppy-disk"></i> Save MasterPrompt
+            </button>
+        </div>
+
+        <!-- Messages -->
+        <div id="ai-messages" class="ai-messages">
+            <div class="ai-welcome" id="ai-welcome">
+                <div class="ai-welcome-icon"><i class="fa-solid fa-robot"></i></div>
+                <p class="ai-welcome-title">Hey, I'm Orbit AI</p>
+                <p class="ai-welcome-sub">I have full context of your projects and tasks. Ask me to analyze your workload, find bottlenecks, suggest what to tackle next, or anything else.</p>
+                <div class="ai-starters">
+                    <button class="ai-starter-btn" data-prompt="What should I focus on today based on my tasks?">What to focus on today?</button>
+                    <button class="ai-starter-btn" data-prompt="Which tasks are overdue or at risk? Give me a quick summary.">Any overdue tasks?</button>
+                    <button class="ai-starter-btn" data-prompt="Give me a brief analysis of my current workload across all projects.">Analyze my workload</button>
+                    <button class="ai-starter-btn" data-prompt="What tasks have I been spending the most time on?">Where is my time going?</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input area -->
+        <div class="ai-input-area">
+            <div class="ai-context-bar" id="ai-context-bar">
+                <i class="fa-solid fa-circle-nodes"></i>
+                <span id="ai-context-info">Connecting to context…</span>
+            </div>
+            <div class="ai-input-row">
+                <textarea id="ai-input" class="ai-input" placeholder="Ask anything about your tasks…" rows="1" aria-label="Chat input"></textarea>
+                <button id="ai-send-btn" class="ai-send-btn" aria-label="Send message" disabled>
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <!-- ===== /AI ASSISTANT ===== -->
+
     <!-- Supabase SDK -->
     <div id="toast-container" class="toast-container"></div>
 

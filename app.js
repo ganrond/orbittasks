@@ -217,6 +217,7 @@ async function init() {
     initThemePicker();
     initDurationPicker();
     initPrioritySelector();
+    initAI();
 }
 
 // --- Data Persistence ---
@@ -1590,3 +1591,325 @@ function applyTheme(theme) {
 
 // Start
 document.addEventListener('DOMContentLoaded', init);
+
+// =====================================================
+// AI ASSISTANT
+// =====================================================
+function initAI() {
+    const fab         = document.getElementById('ai-fab');
+    const panel       = document.getElementById('ai-panel');
+    const backdrop    = document.getElementById('ai-backdrop');
+    const closeBtn    = document.getElementById('ai-close-btn');
+    const settingsBtn = document.getElementById('ai-settings-btn');
+    const settingsPanel = document.getElementById('ai-settings-panel');
+    const newChatBtn  = document.getElementById('ai-new-chat-btn');
+    const saveMpBtn   = document.getElementById('ai-save-masterprompt-btn');
+    const masterPromptEl = document.getElementById('ai-masterprompt');
+    const messagesEl  = document.getElementById('ai-messages');
+    const inputEl     = document.getElementById('ai-input');
+    const sendBtn     = document.getElementById('ai-send-btn');
+    const contextInfo = document.getElementById('ai-context-info');
+
+    if (!fab || !panel) return;
+
+    // ---- State ----
+    let chatHistory = [];   // { role: 'user'|'assistant', content: string }[]
+    let streaming   = false;
+
+    // ---- Restore MasterPrompt ----
+    const savedMp = localStorage.getItem('orbitMasterPrompt') || '';
+    if (masterPromptEl) masterPromptEl.value = savedMp;
+
+    // ---- Open / Close ----
+    function openPanel() {
+        panel.classList.add('open');
+        panel.setAttribute('aria-hidden', 'false');
+        backdrop.classList.add('active');
+        updateContextBar();
+        inputEl.focus();
+    }
+    function closePanel() {
+        panel.classList.remove('open');
+        panel.setAttribute('aria-hidden', 'true');
+        backdrop.classList.remove('active');
+        settingsPanel.classList.remove('open');
+    }
+
+    fab.addEventListener('click', openPanel);
+    closeBtn.addEventListener('click', closePanel);
+    backdrop.addEventListener('click', closePanel);
+
+    // ---- Settings toggle ----
+    settingsBtn.addEventListener('click', () => {
+        settingsPanel.classList.toggle('open');
+    });
+
+    // ---- Save MasterPrompt ----
+    saveMpBtn.addEventListener('click', () => {
+        const val = masterPromptEl.value.trim();
+        localStorage.setItem('orbitMasterPrompt', val);
+        showToast('MasterPrompt saved!', 'success');
+        settingsPanel.classList.remove('open');
+    });
+
+    // ---- New Chat ----
+    newChatBtn.addEventListener('click', () => {
+        chatHistory = [];
+        messagesEl.innerHTML = '';
+        messagesEl.appendChild(buildWelcomeEl());
+        showToast('New conversation started.', 'info');
+    });
+
+    // ---- Context bar ----
+    function updateContextBar() {
+        if (!contextInfo) return;
+        const activeProjects = projects.filter(p => !p.archived).length;
+        const pendingTasks   = tasks.filter(t => !t.completed).length;
+        const totalTasks     = tasks.length;
+        const mp = (localStorage.getItem('orbitMasterPrompt') || '').trim();
+        contextInfo.textContent =
+            `${activeProjects} projects · ${pendingTasks} pending / ${totalTasks} tasks` +
+            (mp ? ' · MasterPrompt active' : '');
+        if (sendBtn) sendBtn.disabled = false;
+    }
+
+    // ---- Build system prompt ----
+    function buildSystemPrompt() {
+        const mp  = (localStorage.getItem('orbitMasterPrompt') || '').trim();
+        const now = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+        // Summarise data for context
+        const activeProjects = projects.filter(p => !p.archived);
+        const projectContext = activeProjects.map(p => {
+            const ptasks = tasks.filter(t => t.projectId === p.id);
+            const pending   = ptasks.filter(t => !t.completed);
+            const completed = ptasks.filter(t => t.completed);
+            const overdue   = pending.filter(t => t.dueDate && new Date(t.dueDate + 'T00:00:00') < new Date());
+            const highPrio  = pending.filter(t => t.priority === 'high');
+            return {
+                name: p.name,
+                pending:   pending.map(t => ({
+                    text:     t.text,
+                    priority: t.priority || null,
+                    dueDate:  t.dueDate  || null,
+                    timeSpent: t.timeSpent ? `${Math.round(t.timeSpent/60)}m` : null,
+                    notes:    t.notes || null
+                })),
+                completedCount: completed.length,
+                overdueCount:   overdue.length,
+                highPrioCount:  highPrio.length
+            };
+        });
+
+        let system = `You are Orbit AI, an intelligent productivity assistant embedded in Orbit Tasks, a personal task manager.
+Today is ${now}.
+
+${mp ? `## About the user\n${mp}\n` : ''}
+## Current workspace context
+${JSON.stringify(projectContext, null, 2)}
+
+## Instructions
+- Be concise, direct, and genuinely helpful.
+- Reference specific tasks, projects, or patterns when relevant.
+- If the user asks you to create, complete, or modify tasks, explain what they should do in the app (you cannot modify tasks directly).
+- Format responses clearly: use bullet points for lists, **bold** for emphasis, and short paragraphs.
+- Never be generic — ground your advice in the actual tasks and projects provided above.`;
+
+        return system;
+    }
+
+    // ---- Render welcome screen ----
+    function buildWelcomeEl() {
+        const el = document.createElement('div');
+        el.className = 'ai-welcome';
+        el.id = 'ai-welcome';
+        el.innerHTML = `
+            <div class="ai-welcome-icon"><i class="fa-solid fa-robot"></i></div>
+            <p class="ai-welcome-title">Hey, I'm Orbit AI</p>
+            <p class="ai-welcome-sub">I have full context of your projects and tasks. Ask me to analyze your workload, find bottlenecks, suggest what to tackle next, or anything else.</p>
+            <div class="ai-starters">
+                <button class="ai-starter-btn" data-prompt="What should I focus on today based on my tasks?">What to focus on today?</button>
+                <button class="ai-starter-btn" data-prompt="Which tasks are overdue or at risk? Give me a quick summary.">Any overdue tasks?</button>
+                <button class="ai-starter-btn" data-prompt="Give me a brief analysis of my current workload across all projects.">Analyze my workload</button>
+                <button class="ai-starter-btn" data-prompt="What tasks have I been spending the most time on?">Where is my time going?</button>
+            </div>`;
+        el.querySelectorAll('.ai-starter-btn').forEach(btn => {
+            btn.addEventListener('click', () => sendMessage(btn.dataset.prompt));
+        });
+        return el;
+    }
+
+    // Wire up starter buttons already in the DOM
+    messagesEl.querySelectorAll('.ai-starter-btn').forEach(btn => {
+        btn.addEventListener('click', () => sendMessage(btn.dataset.prompt));
+    });
+
+    // ---- Append a message bubble ----
+    function appendBubble(role, text) {
+        // Remove welcome screen on first message
+        const welcome = document.getElementById('ai-welcome');
+        if (welcome) welcome.remove();
+
+        const wrapper = document.createElement('div');
+        wrapper.className = `ai-msg ai-msg-${role}`;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'ai-bubble';
+        if (role === 'assistant') {
+            bubble.innerHTML = renderMarkdown(text);
+        } else {
+            bubble.textContent = text;
+        }
+        wrapper.appendChild(bubble);
+        messagesEl.appendChild(wrapper);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return bubble;
+    }
+
+    // ---- Simple markdown renderer ----
+    function renderMarkdown(text) {
+        return text
+            // code blocks (``` ... ```)
+            .replace(/```[\s\S]*?```/g, m => {
+                const code = m.replace(/^```\w*\n?/, '').replace(/```$/, '');
+                return `<pre style="background:rgba(255,255,255,0.05);padding:0.6rem 0.75rem;border-radius:6px;overflow-x:auto;font-size:0.8em;font-family:'JetBrains Mono',monospace;margin:0.4rem 0"><code>${escapeHtml(code)}</code></pre>`;
+            })
+            // headings
+            .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+            .replace(/^## (.+)$/gm, '<h3>$1</h3>')
+            // bold
+            .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+            // italic
+            .replace(/\*(.+?)\*/g, '<em>$1</em>')
+            // inline code
+            .replace(/`([^`]+)`/g, '<code>$1</code>')
+            // unordered lists
+            .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
+            .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
+            // numbered lists
+            .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+            // line breaks → paragraphs
+            .split(/\n{2,}/)
+            .map(p => p.trim() ? (p.startsWith('<') ? p : `<p>${p.replace(/\n/g, '<br>')}</p>`) : '')
+            .join('');
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    // ---- Send message ----
+    async function sendMessage(text) {
+        text = (text || inputEl.value).trim();
+        if (!text || streaming) return;
+
+        inputEl.value = '';
+        inputEl.style.height = 'auto';
+        streaming = true;
+        sendBtn.disabled = true;
+        sendBtn.classList.add('loading');
+        sendBtn.innerHTML = '<i class="fa-solid fa-circle-notch"></i>';
+
+        // Show user bubble
+        appendBubble('user', text);
+        chatHistory.push({ role: 'user', content: text });
+
+        // Show assistant bubble with cursor
+        const welcome = document.getElementById('ai-welcome');
+        if (welcome) welcome.remove();
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'ai-msg ai-msg-assistant';
+        const bubble = document.createElement('div');
+        bubble.className = 'ai-bubble';
+        bubble.innerHTML = '<span class="ai-cursor"></span>';
+        wrapper.appendChild(bubble);
+        messagesEl.appendChild(wrapper);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: chatHistory,
+                    system: buildSystemPrompt()
+                })
+            });
+
+            if (!response.ok) {
+                let errMsg = `Error ${response.status}`;
+                try { const j = await response.json(); errMsg = j.error || errMsg; } catch {}
+                bubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i>${errMsg}</span>`;
+                throw new Error(errMsg);
+            }
+
+            // Parse SSE stream
+            const reader  = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer    = '';
+            let fullText  = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop(); // keep incomplete line
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const evt = JSON.parse(data);
+                        if (evt.type === 'content_block_delta' &&
+                            evt.delta?.type === 'text_delta') {
+                            fullText += evt.delta.text;
+                            bubble.innerHTML = renderMarkdown(fullText) + '<span class="ai-cursor"></span>';
+                            messagesEl.scrollTop = messagesEl.scrollHeight;
+                        }
+                        if (evt.type === 'message_stop') {
+                            bubble.innerHTML = renderMarkdown(fullText);
+                        }
+                    } catch {}
+                }
+            }
+
+            // Finalise
+            if (fullText) {
+                bubble.innerHTML = renderMarkdown(fullText);
+                chatHistory.push({ role: 'assistant', content: fullText });
+            }
+
+        } catch (err) {
+            console.error('[AI] Stream error:', err);
+            if (!bubble.querySelector('.ai-error')) {
+                bubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Something went wrong. Please try again.</span>`;
+            }
+        } finally {
+            streaming = false;
+            sendBtn.disabled = false;
+            sendBtn.classList.remove('loading');
+            sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        }
+    }
+
+    // ---- Input events ----
+    sendBtn.addEventListener('click', () => sendMessage());
+
+    inputEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    });
+
+    // Auto-resize textarea
+    inputEl.addEventListener('input', () => {
+        inputEl.style.height = 'auto';
+        inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
+    });
+}
