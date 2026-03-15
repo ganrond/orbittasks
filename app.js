@@ -651,6 +651,7 @@ function createTaskElement(task) {
                     <textarea class="task-notes-input extra-input" placeholder="Add notes...">${escapeHTML(task.notes || '')}</textarea>
                 </div>
             </div>
+            ${!task.completed ? `<div class="task-ai-bar"><button class="task-ai-btn breakdown-btn"><i class="fa-solid fa-scissors"></i> Break into subtasks with AI</button></div>` : ''}
         </div>
     `;
 
@@ -714,6 +715,14 @@ function createTaskElement(task) {
     notesInput.addEventListener('change', (e) => {
         updateTaskField(task.id, 'notes', e.target.value, false);
     });
+
+    // AI breakdown button
+    const breakdownBtn = li.querySelector('.breakdown-btn');
+    if (breakdownBtn) {
+        breakdownBtn.addEventListener('click', () => {
+            if (aiActions.breakdownTask) aiActions.breakdownTask(task);
+        });
+    }
 
     // Drag and drop (custom sort only)
     if (isCustomSort) {
@@ -941,6 +950,11 @@ function addTask(e) {
     } else {
         renderTasks();
         renderSidebar();
+    }
+
+    // Auto-suggest priority if user didn't pick one
+    if (!selectedPriority && aiActions.autoSuggestPriority) {
+        aiActions.autoSuggestPriority(newTask.id, newTask.text);
     }
 }
 
@@ -1845,6 +1859,8 @@ Rules for the ORBIT_UPDATES block:
                 <button class="ai-starter-btn" data-prompt="Which tasks are overdue or at risk? Give me a quick summary.">Any overdue tasks?</button>
                 <button class="ai-starter-btn" data-prompt="Give me a brief analysis of my current workload across all projects.">Analyze my workload</button>
                 <button class="ai-starter-btn" data-prompt="What tasks have I been spending the most time on?">Where is my time going?</button>
+                <button class="ai-starter-btn" data-prompt="Give me a focused morning briefing based on my tasks. Tell me: (1) the 3 most important things to tackle today and why, (2) anything overdue I should address first, and (3) one thing I should NOT work on today so I stay focused.">Daily briefing</button>
+                <button class="ai-starter-btn" data-prompt="Give me a summary of my week. Look at my completed tasks and tell me: (1) what I accomplished, (2) any patterns in where I spent time, and (3) 2-3 clear priorities I should carry into next week.">Week in review</button>
             </div>`;
         el.querySelectorAll('.ai-starter-btn').forEach(btn => {
             btn.addEventListener('click', () => sendMessage(btn.dataset.prompt));
@@ -2243,9 +2259,162 @@ Structure your response:
         }
     }
 
+    // ---- Smart Task Breakdown ----
+    async function breakdownTask(task) {
+        if (streaming) { showToast('AI is busy — wait for it to finish first.', 'info'); return; }
+        openPanel();
+
+        const scanWrapper = document.createElement('div');
+        scanWrapper.className = 'ai-msg ai-msg-assistant';
+        const scanBubble = document.createElement('div');
+        scanBubble.className = 'ai-bubble ai-scan-indicator';
+        scanBubble.innerHTML = `<i class="fa-solid fa-scissors"></i> Breaking down <strong>${escapeHtml(task.text)}</strong>… <span class="ai-cursor"></span>`;
+        scanWrapper.appendChild(scanBubble);
+        const welcome = document.getElementById('ai-welcome');
+        if (welcome) welcome.remove();
+        messagesEl.appendChild(scanWrapper);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+
+        streaming = true;
+        sendBtn.disabled = true;
+
+        let fullText = '';
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [{ role: 'user', content: `Break down this task into 3–5 concrete, actionable subtasks: "${task.text}"\n\nRespond with ONLY a raw JSON array of subtask name strings, no explanation:\n["subtask 1", "subtask 2", "subtask 3"]` }],
+                    system: 'You are a task decomposition assistant. Respond ONLY with a raw JSON array of short subtask name strings. No markdown fences, no explanation — just the JSON array.'
+                })
+            });
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const evt = JSON.parse(data);
+                        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') fullText += evt.delta.text;
+                    } catch {}
+                }
+            }
+        } catch (err) {
+            scanBubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Breakdown failed: ${escapeHtml(err.message)}</span>`;
+            streaming = false;
+            sendBtn.disabled = false;
+            return;
+        }
+
+        streaming = false;
+        sendBtn.disabled = false;
+
+        let subtasks = [];
+        try {
+            const match = fullText.match(/\[[\s\S]*\]/);
+            if (match) subtasks = JSON.parse(match[0]).filter(s => typeof s === 'string' && s.trim());
+        } catch {}
+
+        if (!subtasks.length) {
+            scanBubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Couldn't parse subtasks. Try again.</span>`;
+            return;
+        }
+
+        // Create subtasks in the task list
+        const projectTasks = tasks.filter(t => t.projectId === task.projectId);
+        const minOrder = projectTasks.length > 0 ? Math.min(...projectTasks.map(t => t.order ?? 0)) : 0;
+        const newSubtasks = subtasks.map((text, i) => ({
+            id:          generateId(),
+            projectId:   task.projectId,
+            text,
+            completed:   false,
+            timeSpent:   0,
+            priority:    null,
+            dueDate:     null,
+            notes:       '',
+            completedAt: null,
+            order:       minOrder - subtasks.length + i,
+            createdAt:   new Date().toISOString()
+        }));
+        tasks.unshift(...newSubtasks);
+        saveAll();
+        renderTasks();
+        renderSidebar();
+
+        scanWrapper.remove();
+        const resultBubble = appendBubble('assistant', '');
+        resultBubble.innerHTML =
+            `<strong><i class="fa-solid fa-scissors"></i> Broke "${escapeHtml(task.text)}" into ${subtasks.length} subtasks:</strong><br><br>` +
+            subtasks.map((s, i) => `${i + 1}. ${escapeHtml(s)}`).join('<br>') +
+            `<br><br><span style="opacity:0.6;font-size:0.85em">All subtasks were added to your task list.</span>`;
+    }
+
+    // ---- Auto-suggest priority (silent background call) ----
+    async function autoSuggestPriority(taskId, taskText) {
+        try {
+            const response = await fetch('/api/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    messages: [{ role: 'user', content: `Task: "${taskText}"\n\nRespond with ONLY a JSON object: {"priority":"high"|"medium"|"low"}` }],
+                    system: 'You are a task priority classifier. Respond ONLY with a raw JSON object like {"priority":"medium"}. No markdown, no explanation.'
+                })
+            });
+            if (!response.ok) return;
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '', fullText = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const evt = JSON.parse(data);
+                        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') fullText += evt.delta.text;
+                    } catch {}
+                }
+            }
+
+            const match = fullText.match(/\{[\s\S]*\}/);
+            if (!match) return;
+            const { priority } = JSON.parse(match[0]);
+            if (!['high', 'medium', 'low'].includes(priority)) return;
+
+            const taskIdx = tasks.findIndex(t => t.id === taskId);
+            if (taskIdx === -1 || tasks[taskIdx].priority) return; // don't overwrite if user already set one
+            tasks[taskIdx] = { ...tasks[taskIdx], priority };
+            saveAll();
+            renderTasks();
+            renderSidebar();
+
+            const labels = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low' };
+            const preview = taskText.length > 35 ? taskText.slice(0, 35) + '…' : taskText;
+            showToast(`AI set priority to ${labels[priority]} — "${preview}"`, 'info', 4000);
+        } catch {}
+    }
+
     // Expose to createTaskElement via bridge
-    aiActions.openGuide      = openAutomationGuide;
-    aiActions.openSkillGuide = openAISkillGuide;
+    aiActions.openGuide           = openAutomationGuide;
+    aiActions.openSkillGuide      = openAISkillGuide;
+    aiActions.breakdownTask       = breakdownTask;
+    aiActions.autoSuggestPriority = autoSuggestPriority;
 
     // Wire scan button
     const scanBtn = document.getElementById('ai-scan-btn');

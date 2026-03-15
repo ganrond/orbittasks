@@ -1276,6 +1276,15 @@ body {
 .extra-input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(77,255,196,0.1); }
 textarea.extra-input { resize: vertical; min-height: 64px; }
 
+.task-ai-bar { padding: 0.5rem 0 0; display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.task-ai-btn {
+    background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+    border-radius: var(--radius-sm); padding: 0.3rem 0.7rem; font-size: 0.78rem;
+    font-family: 'DM Sans', sans-serif; cursor: pointer; display: flex; align-items: center;
+    gap: 0.4rem; transition: var(--transition-fast);
+}
+.task-ai-btn:hover { color: var(--accent-primary); border-color: var(--accent-primary); background: rgba(77,255,196,0.06); }
+
 /* === DRAG AND DROP === */
 .drag-handle { color: var(--text-muted); font-size: 0.8rem; cursor: grab; padding: 0 0.4rem 0 0; flex-shrink: 0; opacity: 0; transition: var(--transition-fast); display: flex; align-items: center; }
 .task-item:hover .drag-handle { opacity: 1; }
