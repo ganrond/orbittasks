@@ -35,6 +35,9 @@ let currentFilter = 'all';
 let currentSort = 'custom';
 let currentTheme = localStorage.getItem('orbitTheme') || 'default';
 
+// Inicializa conexão com Supabase (retorna false se credenciais não preenchidas)
+const dbEnabled = (typeof initDB === 'function') ? initDB() : false;
+
 let activeTimerTaskId = null;
 let timerInterval = null;
 let timeRemaining = 1500; // 25 mins
@@ -93,9 +96,39 @@ const projectTemplateSelect = document.getElementById('project-template-select')
 const closeModals = document.querySelectorAll('.close-modal');
 
 // --- Core Initialization ---
-function init() {
+async function init() {
     applyTheme(currentTheme);
     bindEvents();
+
+    // Se Supabase estiver configurado, carrega dados da nuvem
+    if (dbEnabled) {
+        try {
+            const dbData = await dbLoadAll();
+
+            if (dbData === null) {
+                // Supabase inacessível — usa localStorage normalmente
+                console.warn('[App] Usando localStorage como fallback.');
+            } else if (dbData.projects.length > 0) {
+                // Dados encontrados na nuvem — usa eles como fonte principal
+                projects   = dbData.projects;
+                tasks      = dbData.tasks;
+                templates  = dbData.templates.length > 0 ? dbData.templates : templates;
+                currentProjectId = projects.find(p => p.id === currentProjectId)
+                    ? currentProjectId
+                    : projects[0].id;
+                console.log('[App] Dados carregados do Supabase.');
+            } else {
+                // Supabase vazio (primeiro acesso) — migra dados do localStorage para a nuvem
+                console.log('[App] Supabase vazio. Migrando dados locais para a nuvem...');
+                if (projects.length > 0) dbSaveProjects(projects);
+                if (tasks.length > 0)    dbSaveTasks(tasks);
+                if (templates.length > 0) dbSaveTemplates(templates);
+            }
+        } catch (e) {
+            console.warn('[App] Erro ao carregar do Supabase:', e);
+        }
+    }
+
     renderSidebar();
     switchProject(currentProjectId);
     initVoiceControl();
@@ -104,10 +137,17 @@ function init() {
 
 // --- Data Persistence ---
 function saveAll() {
+    // Salva localmente para acesso instantâneo
     localStorage.setItem('orbitProjects', JSON.stringify(projects));
     localStorage.setItem('orbitTemplates', JSON.stringify(templates));
     localStorage.setItem('orbitTasks', JSON.stringify(tasks));
     localStorage.setItem('orbitCurrentProject', currentProjectId);
+    // Sincroniza com Supabase em segundo plano (não bloqueia a UI)
+    if (dbEnabled) {
+        dbSaveProjects(projects);
+        dbSaveTasks(tasks);
+        dbSaveTemplates(templates);
+    }
 }
 
 // --- Event Binding ---
@@ -408,11 +448,9 @@ function handleCreateProject(e) {
 function confirmDeleteProject() {
     if (projects.length <= 1) return;
     if (confirm('Are you sure you want to delete this project and all its tasks?')) {
-        // Remove tasks for this project
+        if (dbEnabled) dbDeleteProject(currentProjectId); // Remove do banco (cascade deleta tarefas)
         tasks = tasks.filter(t => t.projectId !== currentProjectId);
-        // Remove project
         projects = projects.filter(p => p.id !== currentProjectId);
-        
         switchProject(projects[0].id);
     }
 }
@@ -453,6 +491,7 @@ function prepSaveAsTemplate() {
 
 function deleteTemplate(id) {
     if (confirm('Delete this template?')) {
+        if (dbEnabled) dbDeleteTemplate(id); // Remove do banco
         templates = templates.filter(t => t.id !== id);
         saveAll();
         renderSidebar();
@@ -498,8 +537,8 @@ function toggleTask(id) {
 }
 
 function deleteTask(id, element) {
-    if (activeTimerTaskId === id) stopTimer(); // Auto stop timer when deleting task
-    
+    if (activeTimerTaskId === id) stopTimer();
+    if (dbEnabled) dbDeleteTask(id); // Remove do banco imediatamente
     element.classList.add('removing');
     setTimeout(() => {
         tasks = tasks.filter(task => task.id !== id);
