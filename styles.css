@@ -852,26 +852,147 @@ body {
 .task-item.removing { animation: fadeOut 0.25s ease-in forwards; }
 
 /* ============================================================
-   RESPONSIVE
+   RESPONSIVE — Mobile First
    ============================================================ */
-@media (max-width: 900px) {
-    .app-layout { padding: 1rem; flex-direction: column; }
-    .sidebar {
-        position: fixed; top: 0; left: -100%; height: 100vh; max-height: 100vh;
-        border-radius: 0; z-index: 999; width: 80%; max-width: 280px; padding: 2rem 1.5rem;
-    }
-    .sidebar.open { left: 0; box-shadow: 8px 0 40px rgba(0,0,0,0.5); }
-    .close-sidebar { display: flex; }
-    .menu-toggle { display: flex; align-items: center; justify-content: center; }
-    .app-container { padding: 1.5rem; border-radius: 14px; width: 100%; margin-bottom: 5rem; }
-    .filters-actions { flex-direction: column; align-items: flex-start; }
-    .project-actions { width: 100%; justify-content: space-between; }
+
+/* Touch devices: ações sempre visíveis (sem hover) */
+@media (hover: none) {
+    .task-actions  { opacity: 1; }
+    .item-delete   { opacity: 1; }
+    .action-btn    { width: 38px; height: 38px; font-size: 0.9rem; }
+    .icon-btn      { width: 36px; height: 36px; }
 }
 
+/* ---- Tablet (≤ 900px) ---- */
+@media (max-width: 900px) {
+    .app-layout { padding: 0.875rem; flex-direction: column; gap: 0; }
+
+    .sidebar {
+        position: fixed; top: 0; left: -100%; height: 100%; max-height: 100%;
+        border-radius: 0; z-index: 999;
+        width: min(80vw, 300px);
+        padding: 2rem 1.5rem 2rem;
+        overflow-y: auto;
+    }
+    .sidebar.open { left: 0; box-shadow: 8px 0 48px rgba(0,0,0,0.6); }
+    .close-sidebar { display: flex; }
+    .menu-toggle   { display: flex; align-items: center; justify-content: center; }
+
+    .app-container {
+        padding: 1.5rem;
+        border-radius: 14px;
+        width: 100%;
+        margin-bottom: 6rem; /* espaço para o FAB */
+    }
+
+    .filters-actions { flex-direction: column; align-items: flex-start; gap: 0.75rem; }
+    .project-actions { width: 100%; justify-content: flex-start; gap: 0.5rem; flex-wrap: wrap; }
+}
+
+/* ---- Mobile (≤ 600px) ---- */
 @media (max-width: 600px) {
-    .app-header { flex-direction: column; align-items: flex-start; gap: 1rem; }
-    .header-controls { width: 100%; justify-content: space-between; }
-    .header-title h1 { max-width: 100%; font-size: 1.3rem; }
-    .header-stats { gap: 0.5rem; }
-    .stat-box { padding: 0.4rem 0.65rem; min-width: 52px; }
+    body { font-size: 14px; }
+
+    .app-layout { padding: 0; }
+
+    .app-container {
+        padding: 1.1rem 1rem;
+        border-radius: 0;
+        border-left: none;
+        border-right: none;
+        border-top: none;
+        margin-bottom: 6rem;
+    }
+
+    /* Header */
+    .app-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+        padding-bottom: 1rem;
+    }
+    .header-title h1 { max-width: 100%; font-size: 1.25rem; }
+    .header-controls { width: 100%; justify-content: space-between; align-items: center; }
+    .header-stats    { gap: 0.4rem; flex: 1; }
+    .stat-box        { padding: 0.4rem 0.5rem; min-width: 48px; flex: 1; text-align: center; }
+    .stat-number     { font-size: 1rem; }
+    .stat-label      { font-size: 0.55rem; letter-spacing: 0.1em; }
+
+    /* Timer box */
+    .timer-box { flex: 1.4; }
+
+    /* Input */
+    #task-input {
+        padding: 0.85rem 5.75rem 0.85rem 1rem;
+        font-size: 0.9rem;
+    }
+    .voice-btn { right: 3.2rem; width: 2rem; height: 2rem; font-size: 0.9rem; }
+    .add-btn   { right: 0.35rem; width: 2rem; height: 2rem; font-size: 0.9rem; }
+
+    /* Voice help: texto menor */
+    .voice-help { font-size: 0.72rem; padding: 0.6rem 0.75rem; }
+
+    /* Filters */
+    .filters-actions { gap: 0.65rem; }
+    .filters-group   { flex-direction: column; align-items: flex-start; gap: 0.5rem; width: 100%; }
+    .filters         { gap: 0.3rem; flex-wrap: wrap; }
+    .filter-btn      { padding: 0.45rem 0.85rem; font-size: 0.78rem; }
+
+    .sort-select {
+        width: 100%;
+        padding: 0.45rem 2rem 0.45rem 0.8rem;
+        font-size: 0.8rem;
+    }
+
+    .project-actions { gap: 0.35rem; }
+    .text-btn        { padding: 0.45rem 0.65rem; font-size: 0.78rem; }
+    /* Esconde labels de texto nos botões de ação — só ícones */
+    .action-text     { display: none; }
+
+    /* Tasks */
+    .task-item { padding: 0.8rem 0.75rem; }
+    .task-text { font-size: 0.875rem; }
+    .task-actions {
+        opacity: 1; /* sempre visível no mobile */
+        gap: 0.15rem;
+    }
+    .action-btn { width: 34px; height: 34px; font-size: 0.8rem; }
+
+    .item-delete { opacity: 1; } /* sempre visível no mobile */
+
+    /* FAB */
+    .menu-toggle {
+        bottom: 1.5rem;
+        right: 1.5rem;
+        width: 3rem;
+        height: 3rem;
+        font-size: 1rem;
+    }
+
+    /* Modais */
+    .modal {
+        width: 95%;
+        padding: 1.5rem 1.25rem;
+        border-radius: 16px;
+    }
+}
+
+/* ---- Telas muito pequenas (≤ 380px) ---- */
+@media (max-width: 380px) {
+    .stat-box   { padding: 0.35rem 0.35rem; min-width: 40px; }
+    .stat-number { font-size: 0.9rem; }
+    .header-title h1 { font-size: 1.1rem; }
+    .task-item { padding: 0.7rem 0.6rem; }
+    .action-btn { width: 30px; height: 30px; font-size: 0.75rem; }
+}
+
+/* ---- Safe area para iPhone com notch/home bar ---- */
+@supports (padding: env(safe-area-inset-bottom)) {
+    .app-container {
+        padding-bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    }
+    .menu-toggle {
+        bottom: calc(1.5rem + env(safe-area-inset-bottom));
+    }
 }
