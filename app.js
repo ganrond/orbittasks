@@ -1834,6 +1834,7 @@ function initAI() {
             return {
                 name: p.name,
                 pending:   pending.map(t => ({
+                    id:       t.id,
                     text:     t.text,
                     priority: t.priority || null,
                     dueDate:  t.dueDate  || null,
@@ -1856,9 +1857,21 @@ ${JSON.stringify(projectContext, null, 2)}
 ## Instructions
 - Be concise, direct, and genuinely helpful.
 - Reference specific tasks, projects, or patterns when relevant.
-- If the user asks you to create, complete, or modify tasks, explain what they should do in the app (you cannot modify tasks directly).
 - Format responses clearly: use bullet points for lists, **bold** for emphasis, and short paragraphs.
-- Never be generic — ground your advice in the actual tasks and projects provided above.`;
+- Never be generic — ground your advice in the actual tasks and projects provided above.
+
+## Reorganizing & prioritizing tasks
+When the user asks you to reorganize, reprioritize, or set deadlines for their tasks, include BOTH:
+1. A clear, human-readable explanation of your reasoning
+2. At the very end of your response, this exact block (no spaces or line breaks inside the markers):
+<!--ORBIT_UPDATES[{"id":"task-id","priority":"high","dueDate":"2026-03-25"}]ORBIT_UPDATES-->
+
+Rules for the ORBIT_UPDATES block:
+- Only include tasks you are actually changing
+- Valid priorities: "high", "medium", "low", null
+- Date format: YYYY-MM-DD, or null to clear a due date
+- Omit a field entirely if you are not changing it
+- Do NOT include this block unless the user explicitly asked for reorganization or prioritization`;
 
         return system;
     }
@@ -1873,6 +1886,7 @@ ${JSON.stringify(projectContext, null, 2)}
             <p class="ai-welcome-title">Hey, I'm Orbit AI</p>
             <p class="ai-welcome-sub">I have full context of your projects and tasks. Ask me to analyze your workload, find bottlenecks, suggest what to tackle next, or anything else.</p>
             <div class="ai-starters">
+                <button class="ai-starter-btn ai-starter-featured" data-prompt="I want you to reorganize and prioritize all my tasks for me. First, ask me about my main goal or deadline so your recommendations are on point.">Help me prioritize</button>
                 <button class="ai-starter-btn" data-prompt="What should I focus on today based on my tasks?">What to focus on today?</button>
                 <button class="ai-starter-btn" data-prompt="Which tasks are overdue or at risk? Give me a quick summary.">Any overdue tasks?</button>
                 <button class="ai-starter-btn" data-prompt="Give me a brief analysis of my current workload across all projects.">Analyze my workload</button>
@@ -2024,7 +2038,20 @@ ${JSON.stringify(projectContext, null, 2)}
 
             // Finalise
             if (fullText) {
-                bubble.innerHTML = renderMarkdown(fullText);
+                // Check for task update block before rendering
+                const updatesMatch = fullText.match(/<!--ORBIT_UPDATES(\[[\s\S]*?\])ORBIT_UPDATES-->/);
+                if (updatesMatch) {
+                    try {
+                        const updates = JSON.parse(updatesMatch[1]);
+                        const cleanText = fullText.replace(/<!--ORBIT_UPDATES[\s\S]*?ORBIT_UPDATES-->/, '').trim();
+                        bubble.innerHTML = renderMarkdown(cleanText);
+                        showApplyCard(wrapper, updates);
+                    } catch {
+                        bubble.innerHTML = renderMarkdown(fullText);
+                    }
+                } else {
+                    bubble.innerHTML = renderMarkdown(fullText);
+                }
                 chatHistory.push({ role: 'assistant', content: fullText });
             }
 
@@ -2040,6 +2067,57 @@ ${JSON.stringify(projectContext, null, 2)}
             sendBtn.innerHTML = '<i class="fa-solid fa-paper-plane"></i>';
             messagesEl.scrollTop = messagesEl.scrollHeight;
         }
+    }
+
+    // ---- Task update apply card ----
+    function applyTaskUpdates(updates) {
+        updates.forEach(u => {
+            const idx = tasks.findIndex(t => t.id === u.id);
+            if (idx === -1) return;
+            if (u.priority !== undefined) tasks[idx] = { ...tasks[idx], priority: u.priority };
+            if (u.dueDate  !== undefined) tasks[idx] = { ...tasks[idx], dueDate:  u.dueDate  };
+        });
+        saveAll();
+        renderTasks();
+        renderSidebar();
+    }
+
+    function showApplyCard(msgWrapper, updates) {
+        const validUpdates = updates.filter(u => tasks.find(t => t.id === u.id));
+        if (!validUpdates.length) return;
+
+        const prioLabel = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low', null: 'None' };
+
+        const lines = validUpdates.map(u => {
+            const task = tasks.find(t => t.id === u.id);
+            const parts = [];
+            if (u.priority !== undefined) parts.push(`priority → <strong>${prioLabel[u.priority] || u.priority || 'None'}</strong>`);
+            if (u.dueDate  !== undefined) parts.push(`due → <strong>${u.dueDate || 'cleared'}</strong>`);
+            return `<li>${escapeHtml(task.text)}<span class="ai-apply-change">${parts.join(' · ')}</span></li>`;
+        }).join('');
+
+        const card = document.createElement('div');
+        card.className = 'ai-apply-card';
+        card.innerHTML = `
+            <div class="ai-apply-header">
+                <i class="fa-solid fa-list-check"></i>
+                <span>${validUpdates.length} task${validUpdates.length > 1 ? 's' : ''} will be updated</span>
+            </div>
+            <ul class="ai-apply-list">${lines}</ul>
+            <div class="ai-apply-actions">
+                <button class="ai-apply-btn"><i class="fa-solid fa-check"></i> Apply changes</button>
+                <button class="ai-dismiss-btn">Dismiss</button>
+            </div>`;
+
+        card.querySelector('.ai-apply-btn').addEventListener('click', () => {
+            applyTaskUpdates(validUpdates);
+            card.innerHTML = `<div class="ai-apply-done"><i class="fa-solid fa-check-circle"></i> Changes applied!</div>`;
+            setTimeout(() => card.remove(), 2500);
+        });
+        card.querySelector('.ai-dismiss-btn').addEventListener('click', () => card.remove());
+
+        msgWrapper.appendChild(card);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
     // ---- Automation: open guide for a specific task ----
