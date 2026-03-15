@@ -603,6 +603,11 @@ function createTaskElement(task) {
         ? `<button class="auto-badge" title="This task may be automatable — click for a free setup guide"><i class="fa-solid fa-robot"></i></button>`
         : '';
 
+    // AI Skill badge
+    const skillBadge = task.aiSkill
+        ? `<button class="ai-skill-badge" title="Claude can help speed this up — click for a ready-to-use prompt"><i class="fa-solid fa-bolt"></i></button>`
+        : '';
+
     // Drag handle (only for custom sort)
     const dragHandleHtml = isCustomSort
         ? `<div class="drag-handle"><i class="fa-solid fa-grip-vertical"></i></div>`
@@ -622,6 +627,7 @@ function createTaskElement(task) {
                         <span class="task-text">${escapeHTML(task.text)}</span>
                         ${notesIcon}
                         ${autoBadge}
+                        ${skillBadge}
                     </div>
                     <div class="task-badges">
                         ${timeBadge}
@@ -659,6 +665,14 @@ function createTaskElement(task) {
         li.querySelector('.auto-badge').addEventListener('click', (e) => {
             e.stopPropagation();
             if (aiActions.openGuide) aiActions.openGuide(task);
+        });
+    }
+
+    // AI Skill guide button
+    if (task.aiSkill) {
+        li.querySelector('.ai-skill-badge').addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (aiActions.openSkillGuide) aiActions.openSkillGuide(task);
         });
     }
 
@@ -889,7 +903,8 @@ function cloneProject(sourceId) {
         completedAt: null,
         order:       t.order ?? i,
         createdAt:   new Date().toISOString(),
-        automatable: t.automatable || false
+        automatable: t.automatable || false,
+        aiSkill:     t.aiSkill     || false
     }));
     tasks.push(...clonedTasks);
 
@@ -2066,6 +2081,20 @@ Rules for the ORBIT_UPDATES block:
         messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
+    // ---- AI Skill: open guide for a specific task ----
+    function openAISkillGuide(task) {
+        openPanel();
+        const prompt = `I need your help speeding up this task: "${task.text}"
+
+Tell me exactly how Claude AI can help — whether that's generating content, writing code, doing analysis, creating a draft, or building a reusable prompt I can save and use again.
+
+Structure your response:
+**What Claude can do:** (one clear, specific description)
+**Ready-to-use prompt:** (a complete prompt I can copy and run right now, tailored to this task)
+**Variation:** (a follow-up or alternative prompt for a related angle)`;
+        sendMessage(prompt);
+    }
+
     // ---- Automation: open guide for a specific task ----
     function openAutomationGuide(task) {
         openPanel();
@@ -2105,7 +2134,7 @@ Structure your response:
         scanWrapper.className = 'ai-msg ai-msg-assistant';
         const scanBubble = document.createElement('div');
         scanBubble.className = 'ai-bubble ai-scan-indicator';
-        scanBubble.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Scanning your tasks for automation opportunities… <span class="ai-cursor"></span>`;
+        scanBubble.innerHTML = `<i class="fa-solid fa-wand-magic-sparkles"></i> Scanning your tasks for automation & AI skill opportunities… <span class="ai-cursor"></span>`;
         scanWrapper.appendChild(scanBubble);
         messagesEl.appendChild(scanWrapper);
         messagesEl.scrollTop = messagesEl.scrollHeight;
@@ -2121,8 +2150,8 @@ Structure your response:
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    messages: [{ role: 'user', content: `Analyze these tasks and identify which ones could realistically be automated using free tools (Zapier free tier, Make free tier, Google Apps Script, iOS Shortcuts, browser extensions).\n\nTasks:\n${taskList}\n\nRespond ONLY with a raw JSON array — no markdown, no explanation:\n[{"id":"task-id","reason":"one sentence why"}]\n\nIf none are automatable, respond with: []` }],
-                    system: 'You are a task automation analyzer. You ONLY respond with a raw JSON array. No markdown fences, no explanation — just the JSON.'
+                    messages: [{ role: 'user', content: `Analyze these tasks and identify two things:\n1. Tasks that could be AUTOMATED with free tools (Zapier, Make, Google Apps Script, iOS Shortcuts, browser extensions)\n2. Tasks where Claude AI could directly SPEED UP the work (writing, coding, analysis, drafting, research, planning, generating content)\n\nTasks:\n${taskList}\n\nRespond ONLY with a raw JSON object — no markdown, no explanation:\n{"automatable":[{"id":"task-id","reason":"one sentence"}],"aiSkill":[{"id":"task-id","reason":"one sentence"}]}\n\nUse empty arrays if nothing qualifies for a category.` }],
+                    system: 'You are a task analyzer. You ONLY respond with a raw JSON object matching the exact schema requested. No markdown fences, no explanation — just the JSON.'
                 })
             });
 
@@ -2168,17 +2197,22 @@ Structure your response:
         sendBtn.disabled = false;
 
         // Parse JSON result
-        let found = [];
+        let automatable = [], aiSkill = [];
         try {
-            const match = fullText.match(/\[[\s\S]*\]/);
-            if (match) found = JSON.parse(match[0]);
+            const match = fullText.match(/\{[\s\S]*\}/);
+            if (match) {
+                const parsed = JSON.parse(match[0]);
+                automatable = parsed.automatable || [];
+                aiSkill     = parsed.aiSkill     || [];
+            }
         } catch {}
 
-        // Update automatable flags for this project
-        const foundIds = new Set(found.map(f => f.id));
+        // Update flags for this project
+        const autoIds  = new Set(automatable.map(f => f.id));
+        const skillIds = new Set(aiSkill.map(f => f.id));
         tasks = tasks.map(t => {
             if (t.projectId !== currentProjectId) return t;
-            return { ...t, automatable: foundIds.has(t.id) };
+            return { ...t, automatable: autoIds.has(t.id), aiSkill: skillIds.has(t.id) };
         });
         saveAll();
         renderTasks();
@@ -2186,20 +2220,39 @@ Structure your response:
         // Replace scanning bubble with result card
         scanWrapper.remove();
         const resultBubble = appendBubble('assistant', '');
-        if (found.length === 0) {
-            resultBubble.innerHTML = `<strong>Scan complete.</strong> No clear automation opportunities found in your current tasks. Try adding more specific, repetitive tasks and scan again.`;
+        const total = autoIds.size + skillIds.size;
+
+        if (total === 0) {
+            resultBubble.innerHTML = `<strong>Scan complete.</strong> No automation or AI skill opportunities found. Try adding more specific tasks and scan again.`;
         } else {
-            const taskLines = found.map(f => {
-                const t = tasks.find(t => t.id === f.id);
-                return `• <strong>${t ? escapeHtml(t.text) : f.id}</strong> — ${escapeHtml(f.reason)}`;
-            }).join('<br>');
-            resultBubble.innerHTML = `<strong>Found ${found.length} task${found.length > 1 ? 's' : ''} that could be automated!</strong><br><br>
-Look for the <i class="fa-solid fa-robot" style="color:var(--accent-primary);margin:0 2px"></i> icon next to them — click it to get a free, step-by-step setup guide for each one.<br><br>${taskLines}`;
+            let html = `<strong>Scan complete — found ${total} opportunit${total > 1 ? 'ies' : 'y'}!</strong><br><br>`;
+
+            if (automatable.length > 0) {
+                html += `<i class="fa-solid fa-robot" style="color:var(--accent-primary);margin-right:4px"></i><strong>Automatable with free tools (${automatable.length})</strong><br>`;
+                html += automatable.map(f => {
+                    const t = tasks.find(t => t.id === f.id);
+                    return `• <strong>${t ? escapeHtml(t.text) : f.id}</strong> — ${escapeHtml(f.reason)}`;
+                }).join('<br>');
+                html += '<br><br>';
+            }
+
+            if (aiSkill.length > 0) {
+                html += `<i class="fa-solid fa-bolt" style="color:var(--accent-secondary);margin-right:4px"></i><strong>Claude can speed these up (${aiSkill.length})</strong><br>`;
+                html += aiSkill.map(f => {
+                    const t = tasks.find(t => t.id === f.id);
+                    return `• <strong>${t ? escapeHtml(t.text) : f.id}</strong> — ${escapeHtml(f.reason)}`;
+                }).join('<br>');
+                html += '<br><br>';
+            }
+
+            html += `Click the icons next to each task to get a step-by-step guide.`;
+            resultBubble.innerHTML = html;
         }
     }
 
     // Expose to createTaskElement via bridge
-    aiActions.openGuide = openAutomationGuide;
+    aiActions.openGuide      = openAutomationGuide;
+    aiActions.openSkillGuide = openAISkillGuide;
 
     // Wire scan button
     const scanBtn = document.getElementById('ai-scan-btn');

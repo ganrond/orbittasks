@@ -1196,6 +1196,27 @@ body {
     transform: scale(1.2);
 }
 
+.ai-skill-badge {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--accent-secondary);
+    font-size: 0.72rem;
+    padding: 0.1rem 0.2rem;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    opacity: 0.75;
+    flex-shrink: 0;
+    transition: var(--transition-fast);
+    line-height: 1;
+}
+.ai-skill-badge:hover {
+    opacity: 1;
+    background: rgba(255,159,90,0.12);
+    transform: scale(1.2);
+}
+
 /* Scanning indicator inside chat */
 .ai-scan-indicator {
     display: flex;
