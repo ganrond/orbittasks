@@ -133,7 +133,7 @@ body {
 
 /* --- Layout --- */
 .app-layout {
-    position: relative; z-index: 1;
+    position: relative;
     display: flex;
     max-width: 1240px;
     margin: 0 auto;
@@ -893,8 +893,6 @@ body {
     display: none;
     position: fixed; inset: 0;
     background: rgba(0,0,0,0.5);
-    backdrop-filter: blur(2px);
-    -webkit-backdrop-filter: blur(2px);
     z-index: 998;
     opacity: 0;
     transition: opacity 0.28s ease;
