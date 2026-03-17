@@ -178,6 +178,8 @@ body {
     padding-bottom: 1.25rem;
     border-bottom: 1px solid var(--border);
 }
+.orbit-brand { display: flex; align-items: center; gap: 0.5rem; }
+.orbit-logo { display: block; flex-shrink: 0; }
 .sidebar-header h2 {
     font-family: 'Syne', sans-serif;
     font-size: 1.1rem;
@@ -1291,9 +1293,14 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 .task-item.dragging { opacity: 0.4; }
 .task-item.drag-over { border-color: var(--accent-primary) !important; background: var(--item-hover); }
 @media (hover: none) { .drag-handle { opacity: 1; } }
+.project-drag-handle { color: var(--text-muted); font-size: 0.7rem; cursor: grab; padding: 0 0.35rem 0 0; flex-shrink: 0; opacity: 0.2; transition: opacity var(--transition-fast); display: flex; align-items: center; }
+.list-item:hover .project-drag-handle { opacity: 0.7; }
+.list-item.dragging { opacity: 0.4; }
+.list-item.drag-over { border-color: var(--accent-primary) !important; background: var(--item-hover); }
 
 /* === PROGRESS BAR === */
-.project-item-inner { display: flex; justify-content: space-between; align-items: center; width: 100%; }
+.project-item-inner { display: flex; align-items: center; width: 100%; gap: 0.25rem; }
+.project-item-inner .item-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .project-item-controls { display: flex; align-items: center; gap: 0.4rem; }
 .item-rename { opacity: 0; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.7rem; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 4px; transition: var(--transition-fast); }
 .list-item:hover .item-rename { opacity: 1; }

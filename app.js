@@ -40,7 +40,7 @@ tasks    = tasks.map((t, i) => ({
     ...t,
     projectId: t.projectId || projects[0]?.id
 }));
-projects = projects.map(p => ({ archived: false, ...p }));
+projects = projects.map((p, i) => ({ archived: false, order: i, ...p }));
 
 let currentProjectId = localStorage.getItem('orbitCurrentProject') || projects[0]?.id;
 let currentFilter = 'all';
@@ -62,6 +62,7 @@ let selectedPriority = '';
 
 // Drag state
 let dragSrcId = null;
+let dragSrcProjectId = null;
 
 // DOM Elements
 const sidebar = document.getElementById('sidebar');
@@ -347,7 +348,7 @@ function renderSidebar() {
     const activeProjects   = projects.filter(p => !p.archived);
     const archivedProjects = projects.filter(p => p.archived);
 
-    activeProjects.forEach(p => {
+    activeProjects.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).forEach(p => {
         const projTasks = tasks.filter(t => t.projectId === p.id);
         const total = projTasks.length;
         const done  = projTasks.filter(t => t.completed).length;
@@ -356,9 +357,11 @@ function renderSidebar() {
         const li = document.createElement('li');
         li.className = `list-item ${p.id === currentProjectId ? 'active' : ''}`;
         li.dataset.projectId = p.id;
+        li.draggable = true;
 
         li.innerHTML = `
             <div class="project-item-inner">
+                <span class="project-drag-handle"><i class="fa-solid fa-grip-vertical"></i></span>
                 <span class="item-name">${escapeHTML(p.name)}</span>
                 <div class="project-item-controls">
                     <button class="item-archive" title="Archive project"><i class="fa-solid fa-box-archive"></i></button>
@@ -370,7 +373,7 @@ function renderSidebar() {
         `;
 
         li.querySelector('.project-item-inner').addEventListener('click', (e) => {
-            if (!e.target.closest('.item-rename') && !e.target.closest('.item-archive')) {
+            if (!e.target.closest('.item-rename') && !e.target.closest('.item-archive') && !e.target.closest('.project-drag-handle')) {
                 switchProject(p.id);
             }
         });
@@ -381,6 +384,29 @@ function renderSidebar() {
         li.querySelector('.item-archive').addEventListener('click', (e) => {
             e.stopPropagation();
             archiveProject(p.id);
+        });
+
+        li.addEventListener('dragstart', (e) => {
+            dragSrcProjectId = p.id;
+            li.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        li.addEventListener('dragend', () => {
+            li.classList.remove('dragging');
+            document.querySelectorAll('.list-item.drag-over').forEach(el => el.classList.remove('drag-over'));
+        });
+        li.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            if (dragSrcProjectId !== p.id) li.classList.add('drag-over');
+        });
+        li.addEventListener('dragleave', () => li.classList.remove('drag-over'));
+        li.addEventListener('drop', (e) => {
+            e.preventDefault();
+            li.classList.remove('drag-over');
+            if (dragSrcProjectId && dragSrcProjectId !== p.id) {
+                reorderProjects(dragSrcProjectId, p.id);
+            }
         });
 
         projectListEl.appendChild(li);
@@ -493,7 +519,7 @@ function switchProject(id) {
     // Don't switch to an archived project
     if (!activeProjects.find(p => p.id === id)) {
         if (activeProjects.length === 0) {
-            projects.push({ id: generateId(), name: 'Main Tasks', archived: false });
+            projects.push({ id: generateId(), name: 'Main Tasks', archived: false, order: 0 });
         }
         id = activeProjects[0]?.id || projects[0].id;
     }
@@ -785,6 +811,26 @@ function reorderTasks(srcId, targetId) {
     renderTasks();
 }
 
+function reorderProjects(srcId, targetId) {
+    const active = projects
+        .filter(p => !p.archived)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    const srcIdx = active.findIndex(p => p.id === srcId);
+    const tgtIdx = active.findIndex(p => p.id === targetId);
+    if (srcIdx === -1 || tgtIdx === -1) return;
+
+    const [moved] = active.splice(srcIdx, 1);
+    active.splice(tgtIdx, 0, moved);
+
+    active.forEach((p, i) => {
+        projects = projects.map(proj => proj.id === p.id ? { ...proj, order: i } : proj);
+    });
+
+    saveAll();
+    renderSidebar();
+}
+
 function updateStats(projectTasks) {
     const pendingCount   = projectTasks.filter(t => !t.completed).length;
     const completedCount = projectTasks.filter(t => t.completed).length;
@@ -835,7 +881,7 @@ function handleCreateProject(e) {
     if (!name) return;
 
     const newProjectId = generateId();
-    projects.push({ id: newProjectId, name });
+    projects.push({ id: newProjectId, name, order: projects.filter(p => !p.archived).length });
 
     saveAll();
     closeAllModals();
@@ -890,7 +936,7 @@ function cloneProject(sourceId) {
     if (!source) return;
 
     const newProjectId = generateId();
-    projects.push({ id: newProjectId, name: source.name, archived: false });
+    projects.push({ id: newProjectId, name: source.name, archived: false, order: projects.filter(p => !p.archived).length });
 
     // Clone tasks: keep text, priority, notes — reset progress
     const sourceTasks = tasks.filter(t => t.projectId === sourceId);
@@ -1332,18 +1378,19 @@ function initVoiceControl() {
         isActive = false;
         awaitingCommand = false;
         try { recognition.stop(); } catch(e) {}
-        voiceBtn.classList.remove('recording');
+        if (voiceBtn) voiceBtn.classList.remove('recording');
         setStatus('');
         taskInput.placeholder = "What needs to be done?";
     }
 
+    if (!voiceBtn) return;
     voiceBtn.addEventListener('click', () => {
         if (isActive) stopListening();
         else startListening();
     });
 
     recognition.onstart = () => {
-        voiceBtn.classList.add('recording');
+        if (voiceBtn) voiceBtn.classList.add('recording');
         setStatus('Say "Hey Orbit"...');
         taskInput.placeholder = 'Say "Hey Orbit" to start...';
     };
@@ -1352,7 +1399,7 @@ function initVoiceControl() {
         if (isActive) {
             try { recognition.start(); } catch(e) {}
         } else {
-            voiceBtn.classList.remove('recording');
+            if (voiceBtn) voiceBtn.classList.remove('recording');
             setStatus('');
             taskInput.placeholder = "What needs to be done?";
         }
@@ -1361,7 +1408,7 @@ function initVoiceControl() {
     recognition.onerror = (event) => {
         if (event.error === 'not-allowed') {
             isActive = false;
-            voiceBtn.classList.remove('recording');
+            if (voiceBtn) voiceBtn.classList.remove('recording');
             setStatus('Mic access denied.', 'var(--accent-danger)');
             setTimeout(() => setStatus(''), 3000);
             return;
@@ -1465,7 +1512,7 @@ function handleVoiceCommand(command) {
         const name = command.replace('new project ', '').trim();
         if (name) {
             const newProjectId = generateId();
-            projects.push({ id: newProjectId, name: name.charAt(0).toUpperCase() + name.slice(1) });
+            projects.push({ id: newProjectId, name: name.charAt(0).toUpperCase() + name.slice(1), order: projects.filter(p => !p.archived).length });
             saveAll();
             renderSidebar();
             switchProject(newProjectId);
@@ -1580,7 +1627,7 @@ document.addEventListener('DOMContentLoaded', init);
 // =====================================================
 
 // Bridge: lets createTaskElement call functions defined inside initAI
-const aiActions = { openGuide: null };
+const aiActions = { openGuide: null, openSkillGuide: null, breakdownTask: null, autoSuggestPriority: null };
 
 function initAI() {
     const fab           = document.getElementById('ai-fab');
@@ -1901,7 +1948,7 @@ Rules for the ORBIT_UPDATES block:
             // code blocks (``` ... ```)
             .replace(/```[\s\S]*?```/g, m => {
                 const code = m.replace(/^```\w*\n?/, '').replace(/```$/, '');
-                return `<pre style="background:rgba(255,255,255,0.05);padding:0.6rem 0.75rem;border-radius:6px;overflow-x:auto;font-size:0.8em;font-family:'JetBrains Mono',monospace;margin:0.4rem 0"><code>${escapeHtml(code)}</code></pre>`;
+                return `<pre style="background:rgba(255,255,255,0.05);padding:0.6rem 0.75rem;border-radius:6px;overflow-x:auto;font-size:0.8em;font-family:'JetBrains Mono',monospace;margin:0.4rem 0"><code>${escapeHTML(code)}</code></pre>`;
             })
             // headings
             .replace(/^### (.+)$/gm, '<h3>$1</h3>')
@@ -1921,10 +1968,6 @@ Rules for the ORBIT_UPDATES block:
             .split(/\n{2,}/)
             .map(p => p.trim() ? (p.startsWith('<') ? p : `<p>${p.replace(/\n/g, '<br>')}</p>`) : '')
             .join('');
-    }
-
-    function escapeHtml(str) {
-        return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
     // ---- Send message ----
@@ -2063,7 +2106,7 @@ Rules for the ORBIT_UPDATES block:
             const parts = [];
             if (u.priority !== undefined) parts.push(`priority → <strong>${prioLabel[u.priority] || u.priority || 'None'}</strong>`);
             if (u.dueDate  !== undefined) parts.push(`due → <strong>${u.dueDate || 'cleared'}</strong>`);
-            return `<li>${escapeHtml(task.text)}<span class="ai-apply-change">${parts.join(' · ')}</span></li>`;
+            return `<li>${escapeHTML(task.text)}<span class="ai-apply-change">${parts.join(' · ')}</span></li>`;
         }).join('');
 
         const card = document.createElement('div');
@@ -2196,7 +2239,7 @@ Structure your response:
             console.error('[Scan error]', err);
             scanWrapper.remove();
             const errBubble = appendBubble('assistant', '');
-            errBubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Scan failed: ${escapeHtml(err.message)}</span>`;
+            errBubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Scan failed: ${escapeHTML(err.message)}</span>`;
             streaming = false;
             sendBtn.disabled = false;
             return;
@@ -2240,7 +2283,7 @@ Structure your response:
                 html += `<i class="fa-solid fa-robot" style="color:var(--accent-primary);margin-right:4px"></i><strong>Automatable with free tools (${automatable.length})</strong><br>`;
                 html += automatable.map(f => {
                     const t = tasks.find(t => t.id === f.id);
-                    return `• <strong>${t ? escapeHtml(t.text) : f.id}</strong> — ${escapeHtml(f.reason)}`;
+                    return `• <strong>${t ? escapeHTML(t.text) : f.id}</strong> — ${escapeHTML(f.reason)}`;
                 }).join('<br>');
                 html += '<br><br>';
             }
@@ -2249,7 +2292,7 @@ Structure your response:
                 html += `<i class="fa-solid fa-bolt" style="color:var(--accent-secondary);margin-right:4px"></i><strong>Claude can speed these up (${aiSkill.length})</strong><br>`;
                 html += aiSkill.map(f => {
                     const t = tasks.find(t => t.id === f.id);
-                    return `• <strong>${t ? escapeHtml(t.text) : f.id}</strong> — ${escapeHtml(f.reason)}`;
+                    return `• <strong>${t ? escapeHTML(t.text) : f.id}</strong> — ${escapeHTML(f.reason)}`;
                 }).join('<br>');
                 html += '<br><br>';
             }
@@ -2268,7 +2311,7 @@ Structure your response:
         scanWrapper.className = 'ai-msg ai-msg-assistant';
         const scanBubble = document.createElement('div');
         scanBubble.className = 'ai-bubble ai-scan-indicator';
-        scanBubble.innerHTML = `<i class="fa-solid fa-scissors"></i> Breaking down <strong>${escapeHtml(task.text)}</strong>… <span class="ai-cursor"></span>`;
+        scanBubble.innerHTML = `<i class="fa-solid fa-scissors"></i> Breaking down <strong>${escapeHTML(task.text)}</strong>… <span class="ai-cursor"></span>`;
         scanWrapper.appendChild(scanBubble);
         const welcome = document.getElementById('ai-welcome');
         if (welcome) welcome.remove();
@@ -2310,7 +2353,7 @@ Structure your response:
                 }
             }
         } catch (err) {
-            scanBubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Breakdown failed: ${escapeHtml(err.message)}</span>`;
+            scanBubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Breakdown failed: ${escapeHTML(err.message)}</span>`;
             streaming = false;
             sendBtn.disabled = false;
             return;
@@ -2354,8 +2397,8 @@ Structure your response:
         scanWrapper.remove();
         const resultBubble = appendBubble('assistant', '');
         resultBubble.innerHTML =
-            `<strong><i class="fa-solid fa-scissors"></i> Broke "${escapeHtml(task.text)}" into ${subtasks.length} subtasks:</strong><br><br>` +
-            subtasks.map((s, i) => `${i + 1}. ${escapeHtml(s)}`).join('<br>') +
+            `<strong><i class="fa-solid fa-scissors"></i> Broke "${escapeHTML(task.text)}" into ${subtasks.length} subtasks:</strong><br><br>` +
+            subtasks.map((s, i) => `${i + 1}. ${escapeHTML(s)}`).join('<br>') +
             `<br><br><span style="opacity:0.6;font-size:0.85em">All subtasks were added to your task list.</span>`;
     }
 
