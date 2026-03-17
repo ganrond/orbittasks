@@ -841,15 +841,7 @@ body {
    HISTORY VIEW
    ============================================================ */
 
-/* History view is now a fixed full-screen overlay (see VIEW TRANSITIONS above).
-   Its children need to scroll inside it. */
-#history-view {
-    overflow-y: auto;
-    padding: 2rem;
-}
-@media (max-width: 860px) {
-    #history-view { padding: 1.25rem; }
-}
+/* History view flows normally inside app-container (no fixed positioning needed) */
 
 .history-header { margin-bottom: 1.5rem; }
 .back-btn { padding: 0.4rem 1rem; gap: 0.4rem; font-size: 0.85rem; }
@@ -1750,27 +1742,15 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 }
 
 /* =====================================================
-   VIEW TRANSITIONS — smooth fade-in for overlaid views
+   VIEW TRANSITIONS — smooth fade-in when switching views
    ===================================================== */
 
 @keyframes viewEnter {
-    from { opacity: 0; transform: translateY(10px); }
+    from { opacity: 0; transform: translateY(8px); }
     to   { opacity: 1; transform: translateY(0); }
 }
 .view-enter {
     animation: viewEnter 0.22s cubic-bezier(0.22, 1, 0.36, 1) both;
-}
-
-/* History + Weekly views become full-screen overlays when visible */
-#history-view,
-#weekly-view {
-    position: fixed;
-    inset: 0;
-    z-index: 200;
-    background: var(--bg-dark);
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
 }
 
 /* =====================================================
@@ -1778,6 +1758,13 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
    ===================================================== */
 
 #weekly-view {
+    /* Fill the container — panels inside will scroll independently */
+    display: flex;
+    flex-direction: column;
+    min-height: calc(100vh - 8.5rem);
+    min-height: calc(100dvh - 8.5rem);
+    /* Escape the container's horizontal padding so panels go edge-to-edge */
+    margin: -2.25rem -2.5rem;
     background:
         radial-gradient(ellipse 70% 40% at 80% 0%, rgba(77,255,196,0.04) 0%, transparent 60%),
         var(--bg-dark);
@@ -1787,15 +1774,12 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 .weekly-header {
     flex-shrink: 0;
     border-bottom: 1px solid var(--border);
-    background: rgba(13, 13, 20, 0.95);
-    backdrop-filter: blur(12px);
-    padding: 1rem 2rem;
+    background: rgba(13, 13, 20, 0.6);
+    padding: 1rem 2rem !important;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    /* override .app-header defaults */
     margin-bottom: 0 !important;
-    padding-bottom: 1rem !important;
 }
 .weekly-header .header-title h1 {
     font-family: 'Syne', sans-serif;
@@ -1887,7 +1871,10 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
     display: grid;
     grid-template-columns: 55fr 45fr;
     overflow: hidden;
-    min-height: 0;
+    /* Give panels a concrete height so they can scroll internally */
+    height: calc(100vh - 14rem);
+    height: calc(100dvh - 14rem);
+    min-height: 320px;
 }
 
 .wp-panel {
@@ -2205,12 +2192,20 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 
 /* Mobile */
 @media (max-width: 700px) {
-    #history-view,
-    #weekly-view { position: fixed; }
-
+    #weekly-view {
+        margin: -1rem -1.25rem; /* match mobile container padding */
+        min-height: calc(100vh - 6rem);
+        min-height: calc(100dvh - 6rem);
+    }
     .wp-body {
         grid-template-columns: 1fr;
-        grid-template-rows: 1fr 1fr;
+        height: auto;
+        max-height: none;
+        overflow: visible;
+    }
+    .wp-panel {
+        height: 50vh;
+        overflow: hidden;
     }
     .wp-backlog-panel {
         border-right: none;
