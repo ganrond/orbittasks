@@ -60,6 +60,19 @@
                         <!-- Back arc of ring (dimmed) -->
                         <path d="M 32.69,14.08 A 14,4.5 -25 0,0 7.31,25.92"
                               stroke="#4dffc4" stroke-width="1.4" stroke-linecap="round" stroke-opacity="0.3" fill="none"/>
+                        <!-- Satellite BACK copy — drawn before planet so planet occludes it naturally -->
+                        <circle cx="0" cy="0" r="2.4" fill="#4dffc4" filter="url(#osg)">
+                            <animateMotion dur="4s" repeatCount="indefinite"
+                                calcMode="spline"
+                                values="32.69,14.08; 30.32,18.69; 21.90,24.08; 12.37,27.07; 7.31,25.92; 9.68,21.31; 18.10,15.92; 27.63,12.93; 32.69,14.08"
+                                keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1"
+                                keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"/>
+                            <!-- Visible only during back half (t=180°–360°) -->
+                            <animate attributeName="opacity"
+                                values="0;0;0;0;1;1;1;1;0"
+                                keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1"
+                                dur="4s" repeatCount="indefinite" calcMode="linear"/>
+                        </circle>
                         <!-- Planet body -->
                         <circle cx="20" cy="20" r="8.5" fill="url(#olg)"/>
                         <!-- Planet surface highlight -->
@@ -67,13 +80,18 @@
                         <!-- Front arc of ring (bright) -->
                         <path d="M 32.69,14.08 A 14,4.5 -25 0,1 7.31,25.92"
                               stroke="#4dffc4" stroke-width="1.4" stroke-linecap="round" fill="none"/>
-                        <!-- Orbiting satellite -->
+                        <!-- Satellite FRONT copy — drawn after planet so it appears on top -->
                         <circle cx="0" cy="0" r="2.4" fill="#4dffc4" filter="url(#osg)">
                             <animateMotion dur="4s" repeatCount="indefinite"
                                 calcMode="spline"
                                 values="32.69,14.08; 30.32,18.69; 21.90,24.08; 12.37,27.07; 7.31,25.92; 9.68,21.31; 18.10,15.92; 27.63,12.93; 32.69,14.08"
                                 keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1"
                                 keySplines="0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1;0.45 0 0.55 1"/>
+                            <!-- Visible only during front half (t=0°–180°) -->
+                            <animate attributeName="opacity"
+                                values="1;1;1;1;0;0;0;0;1"
+                                keyTimes="0;0.125;0.25;0.375;0.5;0.625;0.75;0.875;1"
+                                dur="4s" repeatCount="indefinite" calcMode="linear"/>
                         </circle>
                     </svg>
                     <h2>Orbit</h2>
