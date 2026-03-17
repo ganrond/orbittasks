@@ -1248,6 +1248,14 @@ body {
 .prio-btn.prio-low.active { border-color: #4dffc4; color: #4dffc4; background: rgba(77,255,196,0.08); }
 .prio-btn:hover { color: var(--text-main); border-color: var(--border-accent); }
 
+/* Context picker (add form) */
+.priority-row-sep { width: 1px; height: 16px; background: var(--border); flex-shrink: 0; margin: 0 0.1rem; align-self: center; }
+.context-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.6rem; border-radius: 20px; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: var(--transition-fast); }
+.context-btn.active { border-color: var(--border-accent); color: var(--text-main); }
+.context-btn-deep.active { border-color: #818cf8; color: #818cf8; background: rgba(129,140,248,0.08); }
+.context-btn-quick.active { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,0.08); }
+.context-btn:hover { color: var(--text-main); border-color: var(--border-accent); }
+
 .prio-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .prio-dot-high { background: #ff4466; box-shadow: 0 0 6px rgba(255,68,102,0.5); }
 .prio-dot-medium { background: #ff9f5a; box-shadow: 0 0 6px rgba(255,159,90,0.5); }
@@ -1259,6 +1267,19 @@ body {
 .due-soon { color: #ffd060; border-color: rgba(255,208,96,0.4); background: rgba(255,208,96,0.07); }
 .due-overdue { color: #ff4466; border-color: rgba(255,68,102,0.4); background: rgba(255,68,102,0.08); animation: pulse-overdue 2s infinite; }
 @keyframes pulse-overdue { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
+
+/* Context badges (task card) */
+.context-badge { font-family: 'DM Sans', sans-serif; font-size: 0.65rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 20px; display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; border: 1px solid; }
+.context-deep-work  { color: #818cf8; border-color: rgba(129,140,248,0.35); background: rgba(129,140,248,0.08); }
+.context-quick-win  { color: #4ade80; border-color: rgba(74,222,128,0.35);  background: rgba(74,222,128,0.08); }
+
+/* Context filter buttons (task list) */
+.context-filters { margin-top: 0.35rem; }
+.context-filter-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted); padding: 0.2rem 0.65rem; border-radius: 20px; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; font-weight: 500; cursor: pointer; transition: var(--transition-fast); }
+.context-filter-btn.active { border-color: var(--border-accent); color: var(--text-main); background: var(--item-hover); }
+.context-filter-btn:hover { color: var(--text-main); border-color: var(--border-accent); }
+.context-filter-deep.active { border-color: #818cf8; color: #818cf8; background: rgba(129,140,248,0.08); }
+.context-filter-quick.active { border-color: #4ade80; color: #4ade80; background: rgba(74,222,128,0.08); }
 
 /* Due date row highlights */
 .task-item.task-due-today { border-left: 2px solid rgba(255,159,90,0.6); background: linear-gradient(90deg, rgba(255,159,90,0.04) 0%, transparent 60%); }

@@ -44,6 +44,7 @@ projects = projects.map((p, i) => ({ archived: false, order: i, ...p }));
 
 let currentProjectId = localStorage.getItem('orbitCurrentProject') || projects[0]?.id;
 let currentFilter = 'all';
+let currentContextFilter = null; // null | 'deep-work' | 'quick-win'
 let currentSort = 'custom';
 let currentTheme = localStorage.getItem('orbitTheme') || 'default';
 
@@ -57,8 +58,9 @@ let activeTimerTaskId = null;
 let timerInterval = null;
 let timeRemaining = pomodoroDuration;
 
-// Selected priority for new tasks
+// Selected priority / context for new tasks
 let selectedPriority = '';
+let selectedContext  = '';
 
 // Drag state
 let dragSrcId = null;
@@ -307,6 +309,25 @@ function bindEvents() {
         });
     });
 
+    // Context filter buttons (in task list header)
+    document.querySelectorAll('.context-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.context-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentContextFilter = btn.dataset.contextFilter === 'all' ? null : btn.dataset.contextFilter;
+            renderTasks();
+        });
+    });
+
+    // Context picker buttons (in add form)
+    document.querySelectorAll('.context-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.context-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            selectedContext = btn.dataset.context;
+        });
+    });
+
     if (sortSelect) {
         sortSelect.addEventListener('change', (e) => {
             currentSort = e.target.value;
@@ -541,6 +562,10 @@ function switchProject(id) {
     renderSidebar();
 
     document.querySelector('[data-filter="all"]').click();
+    currentContextFilter = null;
+    document.querySelectorAll('.context-filter-btn').forEach(b => b.classList.remove('active'));
+    const allCtxBtn = document.querySelector('.context-filter-btn[data-context-filter="all"]');
+    if (allCtxBtn) allCtxBtn.classList.add('active');
 
     const canDelete = activeProjects.length > 1;
     deleteProjectBtn.disabled = !canDelete;
@@ -558,6 +583,10 @@ function renderTasks() {
         filteredTasks = projectTasks.filter(t => !t.completed);
     } else if (currentFilter === 'completed') {
         filteredTasks = projectTasks.filter(t => t.completed);
+    }
+
+    if (currentContextFilter) {
+        filteredTasks = filteredTasks.filter(t => t.context === currentContextFilter);
     }
 
     // Apply Sorting
@@ -624,6 +653,14 @@ function createTaskElement(task) {
         dueBadge = `<span class="due-badge ${cls}"><i class="fa-regular fa-calendar"></i> ${formatDueDate(task.dueDate)}</span>`;
     }
 
+    // Context badge
+    let contextBadge = '';
+    if (task.context === 'deep-work') {
+        contextBadge = `<span class="context-badge context-deep-work"><i class="fa-solid fa-brain"></i> Deep Work</span>`;
+    } else if (task.context === 'quick-win') {
+        contextBadge = `<span class="context-badge context-quick-win"><i class="fa-solid fa-bolt"></i> Quick Win</span>`;
+    }
+
     // Priority dot
     let prioDot = '';
     if (task.priority) {
@@ -670,6 +707,7 @@ function createTaskElement(task) {
                     <div class="task-badges">
                         ${timeBadge}
                         ${dueBadge}
+                        ${contextBadge}
                     </div>
                 </div>
             </div>
@@ -1000,6 +1038,7 @@ function addTask(e) {
         timeSpent:   0,
         priority:    selectedPriority || null,
         dueDate:     taskDueInput?.value || null,
+        context:     selectedContext || null,
         notes:       '',
         completedAt: null,
         order:       minOrder - 1,
@@ -1010,6 +1049,11 @@ function addTask(e) {
     saveAll();
     taskInput.value = '';
     if (taskDueInput) taskDueInput.value = '';
+    // Reset context picker
+    document.querySelectorAll('.context-btn').forEach(b => b.classList.remove('active'));
+    const noneCtxBtn = document.querySelector('.context-btn[data-context=""]');
+    if (noneCtxBtn) noneCtxBtn.classList.add('active');
+    selectedContext = '';
 
     if (currentFilter === 'completed') {
         document.querySelector('[data-filter="all"]').click();

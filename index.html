@@ -178,6 +178,10 @@
                     <button type="button" class="prio-btn prio-high" data-prio="high">High</button>
                     <button type="button" class="prio-btn prio-medium" data-prio="medium">Medium</button>
                     <button type="button" class="prio-btn prio-low" data-prio="low">Low</button>
+                    <span class="priority-row-sep"></span>
+                    <button type="button" class="context-btn active" data-context=""><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="context-btn context-btn-deep" data-context="deep-work"><i class="fa-solid fa-brain"></i> Deep</button>
+                    <button type="button" class="context-btn context-btn-quick" data-context="quick-win"><i class="fa-solid fa-bolt"></i> Quick</button>
                     <label class="due-input-label"><i class="fa-regular fa-calendar"></i>
                         <input type="date" id="task-due-input" class="task-due-date-input">
                     </label>
@@ -210,6 +214,11 @@
                         <button class="filter-btn active" data-filter="all">All</button>
                         <button class="filter-btn" data-filter="pending">Pending</button>
                         <button class="filter-btn" data-filter="completed">Completed</button>
+                    </div>
+                    <div class="filters context-filters">
+                        <button class="context-filter-btn active" data-context-filter="all">All</button>
+                        <button class="context-filter-btn context-filter-deep" data-context-filter="deep-work"><i class="fa-solid fa-brain"></i> Deep Work</button>
+                        <button class="context-filter-btn context-filter-quick" data-context-filter="quick-win"><i class="fa-solid fa-bolt"></i> Quick Win</button>
                     </div>
                     <div class="sort-dropdown">
                         <label for="sort-select" class="visually-hidden">Sort tasks</label>
