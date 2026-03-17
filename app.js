@@ -46,6 +46,13 @@ let currentProjectId = localStorage.getItem('orbitCurrentProject') || projects[0
 let currentFilter = 'all';
 let currentContextFilter = null; // null | 'deep-work' | 'quick-win'
 let currentSort = 'custom';
+
+// Weekly Planning state
+let weeklyTaskIds = [];
+try {
+    const parsed = JSON.parse(localStorage.getItem('orbitWeeklyTaskIds'));
+    if (Array.isArray(parsed)) weeklyTaskIds = parsed;
+} catch(e) {}
 let currentTheme = localStorage.getItem('orbitTheme') || 'default';
 
 // Pomodoro duration (in seconds), default 25 min, persisted
@@ -349,6 +356,10 @@ function bindEvents() {
         closeSidebar();
         if (aiActions.openSettings) aiActions.openSettings();
     });
+
+    // Weekly planning
+    const navWeeklyBtn = document.getElementById('nav-weekly-btn');
+    if (navWeeklyBtn) navWeeklyBtn.addEventListener('click', showWeeklyPlanning);
 
     // History controls
     if (navHistoryBtn) navHistoryBtn.addEventListener('click', showHistory);
@@ -1291,6 +1302,295 @@ function showWorkspace() {
     historyView.classList.add('hidden');
     workspaceView.classList.remove('hidden');
     document.getElementById('mobile-history-btn-nav')?.classList.remove('active');
+}
+
+// =====================================================
+// WEEKLY PLANNING
+// =====================================================
+
+function saveWeeklyList() {
+    localStorage.setItem('orbitWeeklyTaskIds', JSON.stringify(weeklyTaskIds));
+}
+
+function formatHoursFromSeconds(secs) {
+    if (!secs || secs <= 0) return null;
+    const totalMins = Math.floor(secs / 60);
+    const hrs  = Math.floor(totalMins / 60);
+    const mins = totalMins % 60;
+    if (totalMins === 0) return '<1m';
+    if (hrs > 0) return `${hrs}h ${mins > 0 ? mins + 'm' : ''}`.trim();
+    return `${mins}m`;
+}
+
+function showWeeklyPlanning() {
+    workspaceView.classList.add('hidden');
+    historyView.classList.add('hidden');
+    document.getElementById('weekly-view').classList.remove('hidden');
+    closeSidebar();
+    renderWeeklyPlanning();
+    attachWeeklyEvents();
+}
+
+function hideWeeklyPlanning() {
+    document.getElementById('weekly-view').classList.add('hidden');
+    workspaceView.classList.remove('hidden');
+}
+
+function renderWeeklyPlanning() {
+    renderWeeklyStats();
+    renderWeeklyBacklog();
+    renderWeeklyFocusList();
+}
+
+function renderWeeklyStats() {
+    const statsEl = document.getElementById('wp-stats');
+    if (!statsEl) return;
+
+    const activeProjects = projects.filter(p => !p.archived);
+    const items = activeProjects
+        .map(p => {
+            const secs = tasks.filter(t => t.projectId === p.id).reduce((s, t) => s + (t.timeSpent || 0), 0);
+            return { name: p.name, secs };
+        })
+        .filter(x => x.secs > 0)
+        .sort((a, b) => b.secs - a.secs);
+
+    if (items.length === 0) {
+        statsEl.innerHTML = '<span class="wp-stats-empty">No time tracked yet — start some focus sessions!</span>';
+        return;
+    }
+
+    statsEl.innerHTML = items.map(x =>
+        `<span class="wp-stat-chip"><span class="wp-stat-name">${escapeHTML(x.name)}</span><span class="wp-stat-time">${formatHoursFromSeconds(x.secs)}</span></span>`
+    ).join('');
+}
+
+function renderWeeklyBacklog() {
+    const backlogEl = document.getElementById('wp-backlog');
+    if (!backlogEl) return;
+    backlogEl.innerHTML = '';
+
+    const activeProjects = projects.filter(p => !p.archived)
+        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    let hasAny = false;
+
+    activeProjects.forEach(p => {
+        const pendingTasks = tasks.filter(t =>
+            t.projectId === p.id &&
+            !t.completed &&
+            !weeklyTaskIds.includes(t.id)
+        ).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+        if (pendingTasks.length === 0) return;
+        hasAny = true;
+
+        const group = document.createElement('div');
+        group.className = 'wp-group';
+        group.innerHTML = `<div class="wp-group-header"><i class="fa-solid fa-folder"></i> ${escapeHTML(p.name)}</div>`;
+
+        pendingTasks.forEach(task => {
+            const item = buildWeeklyTaskItem(task, 'backlog');
+            group.appendChild(item);
+        });
+
+        backlogEl.appendChild(group);
+    });
+
+    if (!hasAny) {
+        backlogEl.innerHTML = '<div class="wp-empty"><i class="fa-solid fa-check-double"></i><p>All pending tasks are in your focus list!</p></div>';
+    }
+
+    // Drag target for backlog (to remove from week list by dragging back)
+    backlogEl.addEventListener('dragover', (e) => { e.preventDefault(); });
+    backlogEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (taskId && weeklyTaskIds.includes(taskId)) {
+            weeklyTaskIds = weeklyTaskIds.filter(id => id !== taskId);
+            saveWeeklyList();
+            renderWeeklyPlanning();
+        }
+    });
+}
+
+function renderWeeklyFocusList() {
+    const listEl = document.getElementById('wp-week-list');
+    const countEl = document.getElementById('wp-week-count');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    // Filter out ids of tasks that no longer exist or are completed
+    weeklyTaskIds = weeklyTaskIds.filter(id => {
+        const t = tasks.find(t2 => t2.id === id);
+        return t && !t.completed;
+    });
+    saveWeeklyList();
+
+    if (countEl) countEl.textContent = weeklyTaskIds.length;
+
+    if (weeklyTaskIds.length === 0) {
+        listEl.innerHTML = '<div class="wp-empty"><i class="fa-solid fa-calendar-plus"></i><p>Drag tasks here or click <i class="fa-solid fa-plus"></i> to plan your week</p></div>';
+    } else {
+        weeklyTaskIds.forEach(id => {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            const item = buildWeeklyTaskItem(task, 'focus');
+            listEl.appendChild(item);
+        });
+    }
+
+    // Drop zone for the focus list
+    listEl.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        listEl.classList.add('wp-drop-active');
+    });
+    listEl.addEventListener('dragleave', () => listEl.classList.remove('wp-drop-active'));
+    listEl.addEventListener('drop', (e) => {
+        e.preventDefault();
+        listEl.classList.remove('wp-drop-active');
+        const taskId = e.dataTransfer.getData('text/plain');
+        if (taskId && !weeklyTaskIds.includes(taskId)) {
+            weeklyTaskIds.push(taskId);
+            saveWeeklyList();
+            renderWeeklyPlanning();
+        }
+    });
+}
+
+function buildWeeklyTaskItem(task, side) {
+    const item = document.createElement('div');
+    item.className = 'wp-task-item';
+    item.draggable = true;
+    item.dataset.taskId = task.id;
+
+    const proj = projects.find(p => p.id === task.projectId);
+    const prioClass = task.priority ? `prio-${task.priority}` : '';
+    const dueHtml = task.dueDate ? `<span class="wp-task-due"><i class="fa-regular fa-calendar"></i> ${task.dueDate}</span>` : '';
+    const ctxHtml = task.context === 'deep-work'
+        ? '<span class="wp-task-ctx wp-ctx-deep"><i class="fa-solid fa-brain"></i></span>'
+        : task.context === 'quick-win'
+        ? '<span class="wp-task-ctx wp-ctx-quick"><i class="fa-solid fa-bolt"></i></span>'
+        : '';
+    const timeHtml = task.timeSpent > 0
+        ? `<span class="wp-task-time"><i class="fa-regular fa-clock"></i> ${formatHoursFromSeconds(task.timeSpent)}</span>`
+        : '';
+
+    item.innerHTML = `
+        <div class="wp-task-main">
+            ${prioClass ? `<span class="prio-dot prio-dot-${task.priority}"></span>` : ''}
+            <span class="wp-task-text">${escapeHTML(task.text)}</span>
+            <div class="wp-task-meta">${dueHtml}${ctxHtml}${timeHtml}</div>
+        </div>
+        <button class="wp-task-action" title="${side === 'backlog' ? 'Add to this week' : 'Remove from this week'}">
+            <i class="fa-solid ${side === 'backlog' ? 'fa-plus' : 'fa-minus'}"></i>
+        </button>
+    `;
+
+    // Drag
+    item.addEventListener('dragstart', (e) => {
+        e.dataTransfer.setData('text/plain', task.id);
+        item.classList.add('wp-dragging');
+    });
+    item.addEventListener('dragend', () => item.classList.remove('wp-dragging'));
+
+    // Button click
+    item.querySelector('.wp-task-action').addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (side === 'backlog') {
+            if (!weeklyTaskIds.includes(task.id)) {
+                weeklyTaskIds.push(task.id);
+                saveWeeklyList();
+            }
+        } else {
+            weeklyTaskIds = weeklyTaskIds.filter(id => id !== task.id);
+            saveWeeklyList();
+        }
+        renderWeeklyPlanning();
+    });
+
+    return item;
+}
+
+function generateWeeklySummary() {
+    if (weeklyTaskIds.length === 0) {
+        showToast('Add some tasks to your focus list first!', 'info');
+        return;
+    }
+
+    // Group by project
+    const byProject = {};
+    weeklyTaskIds.forEach(id => {
+        const task = tasks.find(t => t.id === id);
+        if (!task) return;
+        const proj = projects.find(p => p.id === task.projectId);
+        const key  = proj ? proj.name : 'Other';
+        if (!byProject[key]) byProject[key] = [];
+        byProject[key].push(task);
+    });
+
+    const today = new Date();
+    const dateStr = today.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+    let text = `🗓️ WEEKLY PLAN — ${dateStr}\n`;
+    text += '═'.repeat(40) + '\n\n';
+
+    Object.entries(byProject).forEach(([projName, projTasks]) => {
+        text += `📁 ${projName}\n`;
+        projTasks.forEach(t => {
+            let line = `  • ${t.text}`;
+            if (t.dueDate) line += ` (due ${t.dueDate})`;
+            if (t.context === 'deep-work') line += ' 🧠';
+            if (t.context === 'quick-win') line += ' ⚡';
+            text += line + '\n';
+        });
+        text += '\n';
+    });
+
+    text += '─'.repeat(40) + '\n';
+    text += `Total: ${weeklyTaskIds.length} task${weeklyTaskIds.length !== 1 ? 's' : ''} planned\n`;
+
+    const summaryBox = document.getElementById('wp-summary-box');
+    const summaryText = document.getElementById('wp-summary-text');
+    if (summaryBox && summaryText) {
+        summaryText.value = text;
+        summaryBox.classList.remove('hidden');
+        summaryBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function attachWeeklyEvents() {
+    const backBtn     = document.getElementById('wp-back-btn');
+    const clearBtn    = document.getElementById('wp-clear-btn');
+    const generateBtn = document.getElementById('wp-generate-btn');
+    const copyBtn     = document.getElementById('wp-copy-btn');
+    const summaryBox  = document.getElementById('wp-summary-box');
+
+    if (backBtn) backBtn.onclick = hideWeeklyPlanning;
+
+    if (clearBtn) clearBtn.onclick = () => {
+        if (weeklyTaskIds.length === 0) return;
+        if (confirm('Clear all tasks from this week\'s focus list?')) {
+            weeklyTaskIds = [];
+            saveWeeklyList();
+            if (summaryBox) summaryBox.classList.add('hidden');
+            renderWeeklyPlanning();
+        }
+    };
+
+    if (generateBtn) generateBtn.onclick = generateWeeklySummary;
+
+    if (copyBtn) copyBtn.onclick = () => {
+        const summaryText = document.getElementById('wp-summary-text');
+        if (!summaryText?.value) return;
+        navigator.clipboard.writeText(summaryText.value).then(() => {
+            showToast('Plan copied to clipboard!', 'success');
+        }).catch(() => {
+            summaryText.select();
+            document.execCommand('copy');
+            showToast('Plan copied!', 'success');
+        });
+    };
 }
 
 function renderHistory() {

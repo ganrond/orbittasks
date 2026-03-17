@@ -110,6 +110,7 @@
             </div>
 
             <div class="sidebar-section">
+                <button id="nav-weekly-btn" class="history-nav-btn weekly-nav-btn"><i class="fa-solid fa-calendar-week"></i> Weekly Planning</button>
                 <button id="nav-history-btn" class="history-nav-btn"><i class="fa-solid fa-clock-rotate-left"></i> View History</button>
                 <button id="sidebar-profile-btn" class="history-nav-btn"><i class="fa-solid fa-id-card"></i> My Profile</button>
             </div>
@@ -284,6 +285,64 @@
                     <!-- History projects injected here -->
                 </div>
             </div> <!-- End history-view -->
+
+            <!-- Weekly Planning View -->
+            <div id="weekly-view" class="hidden">
+                <header class="app-header weekly-header">
+                    <div class="header-title">
+                        <h1><i class="fa-solid fa-calendar-week"></i> Weekly Planning</h1>
+                        <p>Drag tasks into your focus list, then copy your plan.</p>
+                    </div>
+                    <div class="header-controls">
+                        <button id="wp-back-btn" class="text-btn outline back-btn">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                    </div>
+                </header>
+
+                <div class="wp-stats-bar">
+                    <span class="wp-stats-label"><i class="fa-regular fa-clock"></i> Time tracked per project</span>
+                    <div class="wp-stats-list" id="wp-stats"></div>
+                </div>
+
+                <div class="wp-body">
+                    <!-- Backlog: all pending tasks by project -->
+                    <div class="wp-panel wp-backlog-panel">
+                        <div class="wp-panel-header">
+                            <h2><i class="fa-solid fa-layer-group"></i> All Tasks</h2>
+                            <span class="wp-panel-hint">Click <i class="fa-solid fa-plus"></i> or drag to add</span>
+                        </div>
+                        <div class="wp-scroll" id="wp-backlog-wrap">
+                            <div id="wp-backlog"></div>
+                        </div>
+                    </div>
+
+                    <!-- This Week: focus list -->
+                    <div class="wp-panel wp-focus-panel">
+                        <div class="wp-panel-header">
+                            <h2><i class="fa-solid fa-bullseye"></i> This Week <span class="wp-badge" id="wp-week-count">0</span></h2>
+                            <button id="wp-clear-btn" class="text-btn">Clear</button>
+                        </div>
+                        <div class="wp-scroll" id="wp-week-list-wrap">
+                            <div id="wp-week-list"></div>
+                        </div>
+                        <div class="wp-focus-footer">
+                            <button id="wp-generate-btn" class="btn primary-btn">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> Generate Summary
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Summary output -->
+                <div id="wp-summary-box" class="wp-summary-box hidden">
+                    <div class="wp-summary-header">
+                        <span><i class="fa-solid fa-file-lines"></i> Your weekly plan is ready</span>
+                        <button id="wp-copy-btn" class="text-btn outline"><i class="fa-solid fa-copy"></i> Copy</button>
+                    </div>
+                    <textarea id="wp-summary-text" class="wp-summary-text" readonly></textarea>
+                </div>
+            </div> <!-- End weekly-view -->
         </main>
     </div>
 
