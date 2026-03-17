@@ -110,7 +110,8 @@ const emptyState = document.getElementById('empty-state');
 
 // History View Elements
 const workspaceView = document.getElementById('workspace-view');
-const historyView = document.getElementById('history-view');
+const historyView   = document.getElementById('history-view');
+const weeklyView    = document.getElementById('weekly-view');
 const navHistoryBtn = document.getElementById('nav-history-btn');
 const backToWorkspaceBtn = document.getElementById('back-to-workspace-btn');
 const historySearch = document.getElementById('history-search');
@@ -1309,19 +1310,28 @@ function exportData() {
     showToast('Dados exportados com sucesso!', 'success');
 }
 
+// --- View transition helper ---
+function enterView(el) {
+    if (!el) return;
+    el.classList.remove('hidden');
+    el.classList.remove('view-enter');
+    void el.offsetWidth; // force reflow so animation replays
+    el.classList.add('view-enter');
+}
+
 // --- History View Logic ---
 function showHistory() {
     workspaceView.classList.add('hidden');
-    historyView.classList.remove('hidden');
+    enterView(historyView);
     closeSidebar();
     document.getElementById('mobile-history-btn-nav')?.classList.add('active');
     document.getElementById('mobile-menu-btn')?.classList.remove('active');
-
     renderHistory();
 }
 
 function showWorkspace() {
     historyView.classList.add('hidden');
+    weeklyView?.classList.add('hidden');
     workspaceView.classList.remove('hidden');
     document.getElementById('mobile-history-btn-nav')?.classList.remove('active');
 }
@@ -1485,7 +1495,7 @@ function formatHoursFromSeconds(secs) {
 function showWeeklyPlanning() {
     workspaceView.classList.add('hidden');
     historyView.classList.add('hidden');
-    document.getElementById('weekly-view').classList.remove('hidden');
+    enterView(document.getElementById('weekly-view'));
     closeSidebar();
     renderWeeklyPlanning();
     attachWeeklyEvents();
