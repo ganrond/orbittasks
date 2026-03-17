@@ -1310,19 +1310,25 @@ function exportData() {
     showToast('Dados exportados com sucesso!', 'success');
 }
 
-// --- View transition helper ---
-function enterView(el) {
-    if (!el) return;
-    el.classList.remove('hidden');
-    el.classList.remove('view-enter');
-    void el.offsetWidth; // force reflow so animation replays
-    el.classList.add('view-enter');
+// --- View switching — one function hides everything, then shows target ---
+const ALL_VIEWS = () => [workspaceView, historyView, weeklyView].filter(Boolean);
+
+function switchToView(target) {
+    ALL_VIEWS().forEach(v => {
+        if (v === target) {
+            v.classList.remove('hidden');
+            v.classList.remove('view-enter');
+            void v.offsetWidth;
+            v.classList.add('view-enter');
+        } else {
+            v.classList.add('hidden');
+        }
+    });
 }
 
 // --- History View Logic ---
 function showHistory() {
-    workspaceView.classList.add('hidden');
-    enterView(historyView);
+    switchToView(historyView);
     closeSidebar();
     document.getElementById('mobile-history-btn-nav')?.classList.add('active');
     document.getElementById('mobile-menu-btn')?.classList.remove('active');
@@ -1330,9 +1336,7 @@ function showHistory() {
 }
 
 function showWorkspace() {
-    historyView.classList.add('hidden');
-    weeklyView?.classList.add('hidden');
-    workspaceView.classList.remove('hidden');
+    switchToView(workspaceView);
     document.getElementById('mobile-history-btn-nav')?.classList.remove('active');
 }
 
@@ -1493,17 +1497,14 @@ function formatHoursFromSeconds(secs) {
 }
 
 function showWeeklyPlanning() {
-    workspaceView.classList.add('hidden');
-    historyView.classList.add('hidden');
-    enterView(document.getElementById('weekly-view'));
+    switchToView(weeklyView);
     closeSidebar();
     renderWeeklyPlanning();
     attachWeeklyEvents();
 }
 
 function hideWeeklyPlanning() {
-    document.getElementById('weekly-view').classList.add('hidden');
-    workspaceView.classList.remove('hidden');
+    showWorkspace();
 }
 
 function renderWeeklyPlanning() {

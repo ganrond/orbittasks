@@ -1758,13 +1758,14 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
    ===================================================== */
 
 #weekly-view {
-    /* Fill the container — panels inside will scroll independently */
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - 8.5rem);
-    min-height: calc(100dvh - 8.5rem);
-    /* Escape the container's horizontal padding so panels go edge-to-edge */
+    /* Escape the container's padding to go full-width */
     margin: -2.25rem -2.5rem;
+    /* Fill the visible viewport height (app-layout has 2rem padding top+bottom) */
+    height: calc(100vh - 4rem);
+    height: calc(100dvh - 4rem);
+    overflow: hidden;
     background:
         radial-gradient(ellipse 70% 40% at 80% 0%, rgba(77,255,196,0.04) 0%, transparent 60%),
         var(--bg-dark);
@@ -1871,10 +1872,7 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
     display: grid;
     grid-template-columns: 55fr 45fr;
     overflow: hidden;
-    /* Give panels a concrete height so they can scroll internally */
-    height: calc(100vh - 14rem);
-    height: calc(100dvh - 14rem);
-    min-height: 320px;
+    min-height: 0;
 }
 
 .wp-panel {
@@ -2193,19 +2191,13 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 /* Mobile */
 @media (max-width: 700px) {
     #weekly-view {
-        margin: -1rem -1.25rem; /* match mobile container padding */
-        min-height: calc(100vh - 6rem);
-        min-height: calc(100dvh - 6rem);
+        margin: -1rem -1.25rem;
+        height: calc(100vh - 5rem);
+        height: calc(100dvh - 5rem);
     }
     .wp-body {
         grid-template-columns: 1fr;
-        height: auto;
-        max-height: none;
-        overflow: visible;
-    }
-    .wp-panel {
-        height: 50vh;
-        overflow: hidden;
+        grid-template-rows: 1fr 1fr;
     }
     .wp-backlog-panel {
         border-right: none;
