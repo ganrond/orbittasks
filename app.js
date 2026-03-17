@@ -322,6 +322,13 @@ function bindEvents() {
     // Timer controls
     if (restartTimerBtn) restartTimerBtn.addEventListener('click', restartTimer);
 
+    // Sidebar profile button
+    const sidebarProfileBtn = document.getElementById('sidebar-profile-btn');
+    if (sidebarProfileBtn) sidebarProfileBtn.addEventListener('click', () => {
+        closeSidebar();
+        if (aiActions.openSettings) aiActions.openSettings();
+    });
+
     // History controls
     if (navHistoryBtn) navHistoryBtn.addEventListener('click', showHistory);
     if (backToWorkspaceBtn) backToWorkspaceBtn.addEventListener('click', showWorkspace);
@@ -564,6 +571,13 @@ function renderTasks() {
         filteredTasks.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
     } else if (currentSort === 'oldest') {
         filteredTasks.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+    } else if (currentSort === 'due-date') {
+        filteredTasks.sort((a, b) => {
+            if (!a.dueDate && !b.dueDate) return 0;
+            if (!a.dueDate) return 1;
+            if (!b.dueDate) return -1;
+            return new Date(a.dueDate) - new Date(b.dueDate);
+        });
     }
 
     if (filteredTasks.length === 0) {
@@ -584,7 +598,11 @@ function renderTasks() {
 function createTaskElement(task) {
     const li = document.createElement('li');
     const isCustomSort = currentSort === 'custom';
-    li.className = `task-item ${task.completed ? 'completed' : ''} ${activeTimerTaskId === task.id ? 'active-timer' : ''}`;
+    const dueClass = (task.dueDate && !task.completed)
+        ? (getDueBadgeClass(task.dueDate) === 'due-overdue' ? 'task-overdue'
+         : getDueBadgeClass(task.dueDate) === 'due-today'   ? 'task-due-today' : '')
+        : '';
+    li.className = `task-item ${task.completed ? 'completed' : ''} ${activeTimerTaskId === task.id ? 'active-timer' : ''} ${dueClass}`.trim();
     li.dataset.id = task.id;
     if (isCustomSort) li.setAttribute('draggable', 'true');
 
@@ -973,6 +991,7 @@ function addTask(e) {
     const projectTasks = tasks.filter(t => t.projectId === currentProjectId);
     const minOrder = projectTasks.length > 0 ? Math.min(...projectTasks.map(t => t.order ?? 0)) : 0;
 
+    const taskDueInput = document.getElementById('task-due-input');
     const newTask = {
         id:          generateId(),
         projectId:   currentProjectId,
@@ -980,7 +999,7 @@ function addTask(e) {
         completed:   false,
         timeSpent:   0,
         priority:    selectedPriority || null,
-        dueDate:     null,
+        dueDate:     taskDueInput?.value || null,
         notes:       '',
         completedAt: null,
         order:       minOrder - 1,
@@ -990,6 +1009,7 @@ function addTask(e) {
     tasks.unshift(newTask);
     saveAll();
     taskInput.value = '';
+    if (taskDueInput) taskDueInput.value = '';
 
     if (currentFilter === 'completed') {
         document.querySelector('[data-filter="all"]').click();
@@ -1627,7 +1647,7 @@ document.addEventListener('DOMContentLoaded', init);
 // =====================================================
 
 // Bridge: lets createTaskElement call functions defined inside initAI
-const aiActions = { openGuide: null, openSkillGuide: null, breakdownTask: null, autoSuggestPriority: null };
+const aiActions = { openGuide: null, openSkillGuide: null, breakdownTask: null, autoSuggestPriority: null, openSettings: null };
 
 function initAI() {
     const fab           = document.getElementById('ai-fab');
@@ -2458,6 +2478,7 @@ Structure your response:
     aiActions.openSkillGuide      = openAISkillGuide;
     aiActions.breakdownTask       = breakdownTask;
     aiActions.autoSuggestPriority = autoSuggestPriority;
+    aiActions.openSettings        = () => { openPanel(); settingsPanel.classList.add('open'); };
 
     // Wire scan button
     const scanBtn = document.getElementById('ai-scan-btn');

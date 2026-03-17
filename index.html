@@ -111,6 +111,7 @@
 
             <div class="sidebar-section">
                 <button id="nav-history-btn" class="history-nav-btn"><i class="fa-solid fa-clock-rotate-left"></i> View History</button>
+                <button id="sidebar-profile-btn" class="history-nav-btn"><i class="fa-solid fa-id-card"></i> My Profile</button>
             </div>
         </aside>
 
@@ -177,6 +178,9 @@
                     <button type="button" class="prio-btn prio-high" data-prio="high">High</button>
                     <button type="button" class="prio-btn prio-medium" data-prio="medium">Medium</button>
                     <button type="button" class="prio-btn prio-low" data-prio="low">Low</button>
+                    <label class="due-input-label"><i class="fa-regular fa-calendar"></i>
+                        <input type="date" id="task-due-input" class="task-due-date-input">
+                    </label>
                     <button type="button" id="voice-help-toggle" class="voice-help-toggle" title="Voice commands">
                         <i class="fa-solid fa-microphone"></i>
                         <i class="fa-solid fa-question"></i>
@@ -211,6 +215,7 @@
                         <label for="sort-select" class="visually-hidden">Sort tasks</label>
                         <select id="sort-select" class="sort-select">
                             <option value="custom">Custom Order</option>
+                            <option value="due-date">Due Date</option>
                             <option value="time-desc">Time Spent (Most)</option>
                             <option value="time-asc">Time Spent (Least)</option>
                             <option value="newest">Newest First</option>
@@ -314,7 +319,7 @@
                 <button id="ai-scan-btn" class="icon-btn" title="Scan tasks for automation opportunities">
                     <i class="fa-solid fa-wand-magic-sparkles"></i>
                 </button>
-                <button id="ai-settings-btn" class="icon-btn" title="MasterPrompt settings">
+                <button id="ai-settings-btn" class="icon-btn" title="My Profile">
                     <i class="fa-solid fa-sliders"></i>
                 </button>
                 <button id="ai-new-chat-btn" class="icon-btn" title="New conversation">
@@ -326,10 +331,10 @@
             </div>
         </div>
 
-        <!-- MasterPrompt settings (collapsed by default) -->
+        <!-- My Profile settings (collapsed by default) -->
         <div id="ai-settings-panel" class="ai-settings-panel">
             <div class="mp-section-header">
-                <span class="ai-settings-label"><i class="fa-solid fa-id-card"></i> MasterPrompt</span>
+                <span class="ai-settings-label"><i class="fa-solid fa-id-card"></i> My Profile</span>
                 <span class="ai-settings-sublabel">Your personal context — goals, priorities, work style — injected into every AI conversation.</span>
             </div>
 
@@ -347,7 +352,7 @@
                     <button id="mp-edit-btn" class="icon-btn" title="Edit manually">
                         <i class="fa-solid fa-pen"></i>
                     </button>
-                    <button id="mp-delete-btn" class="icon-btn" title="Delete MasterPrompt" style="color:var(--accent-danger)">
+                    <button id="mp-delete-btn" class="icon-btn" title="Delete profile" style="color:var(--accent-danger)">
                         <i class="fa-solid fa-trash"></i>
                     </button>
                 </div>

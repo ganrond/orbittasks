@@ -1260,6 +1260,15 @@ body {
 .due-overdue { color: #ff4466; border-color: rgba(255,68,102,0.4); background: rgba(255,68,102,0.08); animation: pulse-overdue 2s infinite; }
 @keyframes pulse-overdue { 0%,100% { opacity:1; } 50% { opacity:0.6; } }
 
+/* Due date row highlights */
+.task-item.task-due-today { border-left: 2px solid rgba(255,159,90,0.6); background: linear-gradient(90deg, rgba(255,159,90,0.04) 0%, transparent 60%); }
+.task-item.task-overdue   { border-left: 2px solid rgba(255,68,102,0.6);  background: linear-gradient(90deg, rgba(255,68,102,0.05)  0%, transparent 60%); }
+
+/* Due date input in add form */
+.due-input-label { display: inline-flex; align-items: center; gap: 0.3rem; color: var(--text-muted); font-size: 0.75rem; margin-left: auto; cursor: pointer; }
+.task-due-date-input { background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--text-sub); font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; padding: 0.2rem 0.4rem; cursor: pointer; transition: var(--transition-fast); color-scheme: dark; }
+.task-due-date-input:hover, .task-due-date-input:focus { border-color: var(--border-accent); outline: none; color: var(--text-main); }
+
 /* === TASK STRUCTURE === */
 .task-item { display: flex; flex-direction: column; align-items: stretch; }
 .task-main { display: flex; align-items: center; justify-content: space-between; width: 100%; padding: 0.85rem 1rem; }
