@@ -53,6 +53,14 @@ try {
     const parsed = JSON.parse(localStorage.getItem('orbitWeeklyTaskIds'));
     if (Array.isArray(parsed)) weeklyTaskIds = parsed;
 } catch(e) {}
+
+// Daily Check-In log: [{ date: 'YYYY-MM-DD', topTask: string, completedYesterday: string }]
+let checkInLog = [];
+try {
+    const parsed = JSON.parse(localStorage.getItem('orbitCheckInLog'));
+    if (Array.isArray(parsed)) checkInLog = parsed;
+} catch(e) {}
+
 let currentTheme = localStorage.getItem('orbitTheme') || 'default';
 
 // Pomodoro duration (in seconds), default 25 min, persisted
@@ -222,6 +230,7 @@ async function init() {
     initDurationPicker();
     initPrioritySelector();
     initAI();
+    initCheckIn();
 }
 
 // --- Data Persistence ---
@@ -357,6 +366,10 @@ function bindEvents() {
         if (aiActions.openSettings) aiActions.openSettings();
     });
 
+    // Daily check-in
+    const navCheckinBtn = document.getElementById('nav-checkin-btn');
+    if (navCheckinBtn) navCheckinBtn.addEventListener('click', () => { closeSidebar(); showCheckIn(); });
+
     // Weekly planning
     const navWeeklyBtn = document.getElementById('nav-weekly-btn');
     if (navWeeklyBtn) navWeeklyBtn.addEventListener('click', showWeeklyPlanning);
@@ -392,6 +405,7 @@ function renderSidebar() {
         const total = projTasks.length;
         const done  = projTasks.filter(t => t.completed).length;
         const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+        const stale = isProjectStale(p.id);
 
         const li = document.createElement('li');
         li.className = `list-item ${p.id === currentProjectId ? 'active' : ''}`;
@@ -403,6 +417,7 @@ function renderSidebar() {
                 <span class="project-drag-handle"><i class="fa-solid fa-grip-vertical"></i></span>
                 <span class="item-name">${escapeHTML(p.name)}</span>
                 <div class="project-item-controls">
+                    ${stale ? `<button class="item-stale-btn" title="No progress in 7 days — click to get unstuck"><i class="fa-solid fa-circle-exclamation"></i></button>` : ''}
                     <button class="item-archive" title="Archive project"><i class="fa-solid fa-box-archive"></i></button>
                     <button class="item-rename"  title="Rename"><i class="fa-solid fa-pen"></i></button>
                     <span class="project-count">${done}/${total}</span>
@@ -424,6 +439,13 @@ function renderSidebar() {
             e.stopPropagation();
             archiveProject(p.id);
         });
+        if (stale) {
+            li.querySelector('.item-stale-btn').addEventListener('click', (e) => {
+                e.stopPropagation();
+                const prompt = `You haven't made progress on "${p.name}" in 7 days. I want you to help me figure out what's blocking me — not just remind me about it. Ask me one focused question about what's in the way, then help me find a concrete next step to break through the block.`;
+                if (aiActions.openWithPrompt) aiActions.openWithPrompt(prompt);
+            });
+        }
 
         li.addEventListener('dragstart', (e) => {
             dragSrcProjectId = p.id;
@@ -1305,6 +1327,144 @@ function showWorkspace() {
 }
 
 // =====================================================
+// STALE PROJECT DETECTION
+// =====================================================
+
+function isProjectStale(projectId) {
+    const projTasks = tasks.filter(t => t.projectId === projectId);
+    if (projTasks.length === 0) return false;
+    const pendingTasks = projTasks.filter(t => !t.completed);
+    if (pendingTasks.length === 0) return false;
+
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+    const recentCompletion = projTasks.some(t =>
+        t.completed && t.completedAt && new Date(t.completedAt) > sevenDaysAgo
+    );
+    return !recentCompletion;
+}
+
+// =====================================================
+// DAILY CHECK-IN
+// =====================================================
+
+function todayDateStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
+function shouldShowCheckIn() {
+    const today = todayDateStr();
+    return !checkInLog.some(entry => entry.date === today);
+}
+
+function showCheckIn() {
+    const overlay = document.getElementById('checkin-overlay');
+    if (overlay) overlay.classList.remove('hidden');
+    setTimeout(() => {
+        const input = document.getElementById('checkin-top-task');
+        if (input) input.focus();
+    }, 400);
+}
+
+function hideCheckIn() {
+    const overlay = document.getElementById('checkin-overlay');
+    if (overlay) overlay.classList.add('hidden');
+}
+
+function submitCheckIn(skipped = false) {
+    const topTask  = skipped ? '' : (document.getElementById('checkin-top-task')?.value.trim() || '');
+    const completed = skipped ? '' : (document.getElementById('checkin-completed-yesterday')?.value.trim() || '');
+
+    checkInLog.push({
+        date:               todayDateStr(),
+        topTask:            topTask,
+        completedYesterday: completed,
+        skipped:            skipped
+    });
+    // Keep last 30 days
+    if (checkInLog.length > 30) checkInLog = checkInLog.slice(-30);
+    localStorage.setItem('orbitCheckInLog', JSON.stringify(checkInLog));
+
+    hideCheckIn();
+
+    if (!skipped && topTask) {
+        showToast(`Set "${topTask}" as your #1 focus today.`, 'success', 4000);
+    }
+}
+
+function getCheckInContext() {
+    if (checkInLog.length === 0) return '';
+    const recent = checkInLog.filter(e => !e.skipped).slice(-7);
+    if (recent.length === 0) return '';
+
+    let text = '\n## Daily check-in history (last 7 days)\n';
+    recent.forEach(e => {
+        text += `- ${e.date}: #1 task → "${e.topTask || '(none)'}". Completed yesterday → "${e.completedYesterday || '(none)'}"\n`;
+    });
+
+    const patternNote = getCheckInPatternNote();
+    if (patternNote) text += `\n⚠️ ${patternNote}\n`;
+
+    return text;
+}
+
+function getCheckInPatternNote() {
+    const real = checkInLog.filter(e => !e.skipped && e.topTask);
+    if (real.length < 3) return null;
+
+    const recent3 = real.slice(-3);
+    const topTask = recent3[0].topTask.toLowerCase().trim();
+    const keyWord = topTask.split(' ')[0];
+
+    const allSame = recent3.every(e => e.topTask.toLowerCase().trim() === topTask);
+    if (!allSame) return null;
+
+    const everDone = recent3.some(e => (e.completedYesterday || '').toLowerCase().includes(keyWord));
+    if (everDone) return null;
+
+    return `The user has listed "${recent3[0].topTask}" as their #1 task for ${recent3.length} days in a row (${recent3.map(e=>e.date).join(', ')}) but hasn't reported completing it. This strongly suggests a block. Proactively acknowledge this pattern and help the user get unstuck — don't just remind them, help them diagnose what's really in the way.`;
+}
+
+function initCheckIn() {
+    const overlay    = document.getElementById('checkin-overlay');
+    const skipBtn    = document.getElementById('checkin-skip-btn');
+    const submitBtn  = document.getElementById('checkin-submit-btn');
+    const topInput   = document.getElementById('checkin-top-task');
+    const doneInput  = document.getElementById('checkin-completed-yesterday');
+
+    if (!overlay) return;
+
+    // Update the date label
+    const dateLabel = document.getElementById('checkin-date-label');
+    if (dateLabel) {
+        const d = new Date();
+        dateLabel.textContent = d.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    }
+
+    skipBtn?.addEventListener('click', () => submitCheckIn(true));
+    submitBtn?.addEventListener('click', () => submitCheckIn(false));
+
+    overlay.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && e.target !== doneInput) {
+            e.preventDefault();
+            if (e.target === topInput) doneInput?.focus();
+        }
+        if (e.key === 'Enter' && e.target === doneInput) {
+            e.preventDefault();
+            submitCheckIn(false);
+        }
+        if (e.key === 'Escape') submitCheckIn(true);
+    });
+
+    if (shouldShowCheckIn()) {
+        // Small delay so the page loads first
+        setTimeout(showCheckIn, 600);
+    }
+}
+
+// =====================================================
 // WEEKLY PLANNING
 // =====================================================
 
@@ -1991,7 +2151,7 @@ document.addEventListener('DOMContentLoaded', init);
 // =====================================================
 
 // Bridge: lets createTaskElement call functions defined inside initAI
-const aiActions = { openGuide: null, openSkillGuide: null, breakdownTask: null, autoSuggestPriority: null, openSettings: null };
+const aiActions = { openGuide: null, openSkillGuide: null, breakdownTask: null, autoSuggestPriority: null, openSettings: null, openWithPrompt: null };
 
 function initAI() {
     const fab           = document.getElementById('ai-fab');
@@ -2226,12 +2386,15 @@ function initAI() {
             };
         });
 
+        const checkInCtx = getCheckInContext();
+
         let system = `You are Orbit AI, an intelligent productivity assistant embedded in Orbit Tasks, a personal task manager.
 Today is ${now}.
 
 ${mp ? `## About the user\n${mp}\n` : ''}
 ## Current workspace context
 ${JSON.stringify(projectContext, null, 2)}
+${checkInCtx}
 
 ## Instructions
 - Be concise, direct, and genuinely helpful.
@@ -2823,6 +2986,11 @@ Structure your response:
     aiActions.breakdownTask       = breakdownTask;
     aiActions.autoSuggestPriority = autoSuggestPriority;
     aiActions.openSettings        = () => { openPanel(); settingsPanel.classList.add('open'); };
+    aiActions.openWithPrompt      = (prompt) => {
+        openPanel();
+        // Small delay to let panel animate in before sending
+        setTimeout(() => sendMessage(prompt), 120);
+    };
 
     // Wire scan button
     const scanBtn = document.getElementById('ai-scan-btn');

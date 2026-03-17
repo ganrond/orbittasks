@@ -110,6 +110,7 @@
             </div>
 
             <div class="sidebar-section">
+                <button id="nav-checkin-btn" class="history-nav-btn checkin-nav-btn"><i class="fa-solid fa-sun"></i> Daily Check-In</button>
                 <button id="nav-weekly-btn" class="history-nav-btn weekly-nav-btn"><i class="fa-solid fa-calendar-week"></i> Weekly Planning</button>
                 <button id="nav-history-btn" class="history-nav-btn"><i class="fa-solid fa-clock-rotate-left"></i> View History</button>
                 <button id="sidebar-profile-btn" class="history-nav-btn"><i class="fa-solid fa-id-card"></i> My Profile</button>
@@ -344,6 +345,57 @@
                 </div>
             </div> <!-- End weekly-view -->
         </main>
+    </div>
+
+    <!-- Daily Check-In Overlay -->
+    <div id="checkin-overlay" class="checkin-overlay hidden" role="dialog" aria-modal="true" aria-label="Morning Check-In">
+        <div class="checkin-card">
+            <div class="checkin-eyebrow">
+                <span class="checkin-orbit-dot"></span>
+                <span>Morning Check-In</span>
+            </div>
+            <h2 class="checkin-title">Set your intention<br>for today.</h2>
+            <p class="checkin-date" id="checkin-date-label"></p>
+
+            <div class="checkin-fields">
+                <div class="checkin-field">
+                    <label class="checkin-label" for="checkin-top-task">
+                        <span class="checkin-num">01</span>
+                        <span>What's your #1 task today?</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="checkin-top-task"
+                        class="checkin-input"
+                        placeholder="The one thing that matters most…"
+                        autocomplete="off"
+                        maxlength="120"
+                    >
+                </div>
+                <div class="checkin-field">
+                    <label class="checkin-label" for="checkin-completed-yesterday">
+                        <span class="checkin-num">02</span>
+                        <span>What did you accomplish yesterday?</span>
+                    </label>
+                    <input
+                        type="text"
+                        id="checkin-completed-yesterday"
+                        class="checkin-input"
+                        placeholder="Even small wins count…"
+                        autocomplete="off"
+                        maxlength="120"
+                    >
+                </div>
+            </div>
+
+            <div class="checkin-actions">
+                <button id="checkin-skip-btn" class="checkin-skip-btn">Skip for today</button>
+                <button id="checkin-submit-btn" class="checkin-submit-btn">
+                    Start my day
+                    <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- Modals -->
