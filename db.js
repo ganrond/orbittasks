@@ -138,3 +138,31 @@ async function dbDeleteTemplate(id) {
         if (error) console.warn('[DB] Erro ao deletar template:', error);
     } catch (e) { console.warn('[DB] dbDeleteTemplate:', e); }
 }
+
+// Carrega um setting pelo key
+async function dbLoadSetting(key) {
+    if (!_supabase) return null;
+    try {
+        const { data, error } = await _supabase.from('settings').select('value').eq('key', key).single();
+        if (error) return null;
+        return data?.value ?? null;
+    } catch (e) { return null; }
+}
+
+// Salva um setting (upsert)
+async function dbSaveSetting(key, value) {
+    if (!_supabase) return;
+    try {
+        const { error } = await _supabase.from('settings').upsert({ key, value, updated_at: new Date().toISOString() });
+        if (error) console.warn('[DB] Erro ao salvar setting:', error);
+    } catch (e) { console.warn('[DB] dbSaveSetting:', e); }
+}
+
+// Remove um setting
+async function dbDeleteSetting(key) {
+    if (!_supabase) return;
+    try {
+        const { error } = await _supabase.from('settings').delete().eq('key', key);
+        if (error) console.warn('[DB] Erro ao deletar setting:', error);
+    } catch (e) { console.warn('[DB] dbDeleteSetting:', e); }
+}

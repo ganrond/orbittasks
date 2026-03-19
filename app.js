@@ -259,6 +259,24 @@ async function init() {
         } catch (e) {
             console.warn('[App] Erro ao carregar do Supabase:', e);
         }
+
+        // Sync MasterPrompt from Supabase (cloud overrides local if present)
+        try {
+            const cloudPrompt = await dbLoadSetting('masterPrompt');
+            if (cloudPrompt) {
+                localStorage.setItem('orbitMasterPrompt', cloudPrompt);
+                // Restore file metadata if missing
+                if (!localStorage.getItem('orbitMasterPromptFile')) {
+                    localStorage.setItem('orbitMasterPromptFile', JSON.stringify({
+                        name: 'synced from cloud',
+                        size: new Blob([cloudPrompt]).size,
+                        uploadedAt: new Date().toISOString()
+                    }));
+                }
+            }
+        } catch (e) {
+            console.warn('[App] Erro ao carregar MasterPrompt:', e);
+        }
     }
 
     checkRecurringTasks();
@@ -2753,6 +2771,7 @@ function initAI() {
                 size: file.size,
                 uploadedAt: new Date().toISOString()
             }));
+            if (dbEnabled) dbSaveSetting('masterPrompt', text);
             mpRenderState();
             showToast(`MasterPrompt loaded from "${file.name}"`, 'success');
         };
@@ -2774,6 +2793,7 @@ function initAI() {
         if (!confirm('Remove the MasterPrompt? The AI will only have task context.')) return;
         localStorage.removeItem('orbitMasterPrompt');
         localStorage.removeItem('orbitMasterPromptFile');
+        if (dbEnabled) dbDeleteSetting('masterPrompt');
         mpRenderState();
         showToast('MasterPrompt removed.', 'warning');
     });
@@ -2798,14 +2818,13 @@ function initAI() {
         const val = (mpTextarea.value || '').trim();
         if (!val) { showToast('Write something first.', 'warning'); return; }
         localStorage.setItem('orbitMasterPrompt', val);
-        // If saving manually, clear file metadata so UI shows editor, not card
         localStorage.removeItem('orbitMasterPromptFile');
-        // Store as a virtual "manual" file for display purposes
         localStorage.setItem('orbitMasterPromptFile', JSON.stringify({
             name: 'manual entry',
             size: new Blob([val]).size,
             uploadedAt: new Date().toISOString()
         }));
+        if (dbEnabled) dbSaveSetting('masterPrompt', val);
         mpRenderState();
         showToast('MasterPrompt saved!', 'success');
     });

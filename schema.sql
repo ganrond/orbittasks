@@ -63,3 +63,12 @@ ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS archived      BOOLEAN     D
 
 -- Energy tagging
 ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS energy        TEXT        DEFAULT NULL;
+
+-- App settings (key/value store for syncing things like MasterPrompt)
+CREATE TABLE IF NOT EXISTS public.settings (
+  key        TEXT PRIMARY KEY,
+  value      TEXT,
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE public.settings ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Acesso publico a settings" ON public.settings FOR ALL USING (true) WITH CHECK (true);
