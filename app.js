@@ -247,6 +247,7 @@ async function init() {
     }
 
     checkRecurringTasks();
+    initNotifications();
     renderSidebar();
     switchProject(currentProjectId);
     initVoiceControl();
@@ -308,6 +309,39 @@ function checkRecurringTasks() {
     saveAll();
     localStorage.setItem('orbitRecurringWeek', weekStartStr);
     console.log(`[Recurring] Generated ${newTasks.length} task(s) for week of ${weekStartStr}`);
+}
+
+// --- Browser Notifications / Reminders ---
+function initNotifications() {
+    if (!('Notification' in window)) return;
+
+    // Only fire once per day
+    const today = new Date().toISOString().split('T')[0];
+    if (localStorage.getItem('orbitLastNotification') === today) return;
+
+    const pending  = tasks.filter(t => !t.completed && t.dueDate);
+    const overdue  = pending.filter(t => t.dueDate < today);
+    const dueToday = pending.filter(t => t.dueDate === today);
+    if (overdue.length === 0 && dueToday.length === 0) return;
+
+    const fire = () => {
+        const parts = [];
+        if (overdue.length)  parts.push(`${overdue.length} overdue`);
+        if (dueToday.length) parts.push(`${dueToday.length} due today`);
+        const preview = [...overdue, ...dueToday].slice(0, 3).map(t => t.text).join(', ');
+        new Notification('Orbit Tasks', {
+            body: `${parts.join(' · ')}: ${preview}`,
+            icon: '/favicon.svg',
+            tag:  'orbit-reminder'
+        });
+        localStorage.setItem('orbitLastNotification', today);
+    };
+
+    if (Notification.permission === 'granted') {
+        fire();
+    } else if (Notification.permission !== 'denied') {
+        Notification.requestPermission().then(p => { if (p === 'granted') fire(); });
+    }
 }
 
 // --- Data Persistence ---
@@ -2526,14 +2560,16 @@ function initAI() {
             const overdue   = pending.filter(t => t.dueDate && new Date(t.dueDate + 'T00:00:00') < new Date());
             const highPrio  = pending.filter(t => t.priority === 'high');
             return {
+                id:   p.id,
                 name: p.name,
                 pending:   pending.map(t => ({
-                    id:       t.id,
-                    text:     t.text,
-                    priority: t.priority || null,
-                    dueDate:  t.dueDate  || null,
-                    timeSpent: t.timeSpent ? `${Math.round(t.timeSpent/60)}m` : null,
-                    notes:    t.notes || null
+                    id:           t.id,
+                    text:         t.text,
+                    priority:     t.priority || null,
+                    dueDate:      t.dueDate  || null,
+                    timeSpent:    t.timeSpent ? `${Math.round(t.timeSpent/60)}m` : null,
+                    notes:        t.notes || null,
+                    recurringDay: t.recurringDay || null
                 })),
                 completedCount: completed.length,
                 overdueCount:   overdue.length,
@@ -2557,18 +2593,33 @@ ${checkInCtx}
 - Format responses clearly: use bullet points for lists, **bold** for emphasis, and short paragraphs.
 - Never be generic — ground your advice in the actual tasks and projects provided above.
 
-## Reorganizing & prioritizing tasks
-When the user asks you to reorganize, reprioritize, or set deadlines for their tasks, include BOTH:
-1. A clear, human-readable explanation of your reasoning
+## Managing tasks through chat
+You can create, update, complete, and delete tasks directly. When you do, ALWAYS include both:
+1. A clear human-readable explanation of what you're doing and why
 2. At the very end of your response, this exact block (no spaces or line breaks inside the markers):
-<!--ORBIT_UPDATES[{"id":"task-id","priority":"high","dueDate":"2026-03-25"}]ORBIT_UPDATES-->
+<!--ORBIT_UPDATES[...]ORBIT_UPDATES-->
 
-Rules for the ORBIT_UPDATES block:
-- Only include tasks you are actually changing
+Each item in the array must have an "action" field. Supported actions:
+
+**"update"** — change priority, due date, or text of an existing task:
+{"action":"update","id":"task-id","priority":"high","dueDate":"2026-03-25"}
+
+**"create"** — add a new task (use the project id from the workspace context above):
+{"action":"create","projectId":"project-id","text":"Task name","priority":"medium","dueDate":"2026-03-25"}
+
+**"complete"** — mark an existing task as done:
+{"action":"complete","id":"task-id"}
+
+**"delete"** — permanently delete an existing task:
+{"action":"delete","id":"task-id"}
+
+Rules:
 - Valid priorities: "high", "medium", "low", null
-- Date format: YYYY-MM-DD, or null to clear a due date
-- Omit a field entirely if you are not changing it
-- Do NOT include this block unless the user explicitly asked for reorganization or prioritization`;
+- Date format: YYYY-MM-DD, or null to clear
+- Omit optional fields if not setting them
+- Use this for ANY task management request: adding, removing, rescheduling, completing tasks
+- When creating tasks, always use the correct projectId from the workspace context
+- Do NOT invent task IDs — only reference IDs that appear in the workspace context above`;
 
         return system;
     }
@@ -2583,13 +2634,14 @@ Rules for the ORBIT_UPDATES block:
             <p class="ai-welcome-title">Hey, I'm Orbit AI</p>
             <p class="ai-welcome-sub">I have full context of your projects and tasks. Ask me to analyze your workload, find bottlenecks, suggest what to tackle next, or anything else.</p>
             <div class="ai-starters">
-                <button class="ai-starter-btn ai-starter-featured" data-prompt="I want you to reorganize and prioritize all my tasks for me. First, ask me about my main goal or deadline so your recommendations are on point.">Help me prioritize</button>
+                <button class="ai-starter-btn ai-starter-featured" data-prompt="Give me a focused morning briefing based on my tasks. Tell me: (1) the 3 most important things to tackle today and why, (2) anything overdue I should address first, and (3) one thing I should NOT work on today so I stay focused.">📋 Daily briefing</button>
+                <button class="ai-starter-btn ai-starter-featured" data-prompt="I want you to reorganize and prioritize all my tasks for me. First, ask me about my main goal or deadline so your recommendations are on point.">⚡ Help me prioritize</button>
                 <button class="ai-starter-btn" data-prompt="What should I focus on today based on my tasks?">What to focus on today?</button>
-                <button class="ai-starter-btn" data-prompt="Which tasks are overdue or at risk? Give me a quick summary.">Any overdue tasks?</button>
+                <button class="ai-starter-btn" data-prompt="Which tasks are overdue or at risk? Mark them high priority and set due dates where missing. Apply the changes directly.">Fix overdue tasks</button>
                 <button class="ai-starter-btn" data-prompt="Give me a brief analysis of my current workload across all projects.">Analyze my workload</button>
                 <button class="ai-starter-btn" data-prompt="What tasks have I been spending the most time on?">Where is my time going?</button>
-                <button class="ai-starter-btn" data-prompt="Give me a focused morning briefing based on my tasks. Tell me: (1) the 3 most important things to tackle today and why, (2) anything overdue I should address first, and (3) one thing I should NOT work on today so I stay focused.">Daily briefing</button>
                 <button class="ai-starter-btn" data-prompt="Give me a summary of my week. Look at my completed tasks and tell me: (1) what I accomplished, (2) any patterns in where I spent time, and (3) 2-3 clear priorities I should carry into next week.">Week in review</button>
+                <button class="ai-starter-btn" data-prompt="Look at all my pending tasks and clean them up: mark any that are clearly done as complete, delete any that are obviously redundant or outdated, and suggest due dates for any high-priority tasks missing them. Show me what you plan to do before applying.">Clean up my tasks</button>
             </div>`;
         el.querySelectorAll('.ai-starter-btn').forEach(btn => {
             btn.addEventListener('click', () => sendMessage(btn.dataset.prompt));
@@ -2767,10 +2819,42 @@ Rules for the ORBIT_UPDATES block:
     // ---- Task update apply card ----
     function applyTaskUpdates(updates) {
         updates.forEach(u => {
-            const idx = tasks.findIndex(t => t.id === u.id);
-            if (idx === -1) return;
-            if (u.priority !== undefined) tasks[idx] = { ...tasks[idx], priority: u.priority };
-            if (u.dueDate  !== undefined) tasks[idx] = { ...tasks[idx], dueDate:  u.dueDate  };
+            if (u.action === 'create') {
+                const proj = projects.find(p => p.id === u.projectId && !p.archived)
+                          || projects.find(p => !p.archived);
+                if (!proj) return;
+                const projectTasks = tasks.filter(t => t.projectId === proj.id);
+                const minOrder = projectTasks.length > 0 ? Math.min(...projectTasks.map(t => t.order ?? 0)) : 0;
+                tasks.unshift({
+                    id:           generateId(),
+                    projectId:    proj.id,
+                    text:         u.text,
+                    completed:    false,
+                    timeSpent:    0,
+                    priority:     u.priority     || null,
+                    dueDate:      u.dueDate      || null,
+                    context:      u.context      || null,
+                    notes:        '',
+                    completedAt:  null,
+                    order:        minOrder - 1,
+                    createdAt:    new Date().toISOString(),
+                    recurring:    false,
+                    recurringDay: null
+                });
+            } else if (u.action === 'complete') {
+                const idx = tasks.findIndex(t => t.id === u.id);
+                if (idx !== -1) tasks[idx] = { ...tasks[idx], completed: true, completedAt: new Date().toISOString() };
+            } else if (u.action === 'delete') {
+                tasks = tasks.filter(t => t.id !== u.id);
+            } else {
+                // update (default)
+                const idx = tasks.findIndex(t => t.id === u.id);
+                if (idx === -1) return;
+                if (u.priority !== undefined) tasks[idx] = { ...tasks[idx], priority: u.priority };
+                if (u.dueDate  !== undefined) tasks[idx] = { ...tasks[idx], dueDate:  u.dueDate  };
+                if (u.text     !== undefined) tasks[idx] = { ...tasks[idx], text:     u.text     };
+                if (u.context  !== undefined) tasks[idx] = { ...tasks[idx], context:  u.context  };
+            }
         });
         saveAll();
         renderTasks();
@@ -2778,16 +2862,32 @@ Rules for the ORBIT_UPDATES block:
     }
 
     function showApplyCard(msgWrapper, updates) {
-        const validUpdates = updates.filter(u => tasks.find(t => t.id === u.id));
+        const validUpdates = updates.filter(u => {
+            if (u.action === 'create') return u.text && projects.find(p => !p.archived);
+            return tasks.find(t => t.id === u.id);
+        });
         if (!validUpdates.length) return;
 
-        const prioLabel = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low', null: 'None' };
+        const prioLabel = { high: '🔴 High', medium: '🟡 Medium', low: '🟢 Low' };
 
         const lines = validUpdates.map(u => {
+            if (u.action === 'create') {
+                const proj = projects.find(p => p.id === u.projectId) || projects.find(p => !p.archived);
+                const meta = [u.priority ? prioLabel[u.priority] : null, u.dueDate ? `due ${u.dueDate}` : null].filter(Boolean).join(' · ');
+                return `<li><i class="fa-solid fa-plus" style="color:#4ade80;margin-right:0.35rem"></i><strong>${escapeHTML(u.text)}</strong> → ${escapeHTML(proj?.name || 'Tasks')}${meta ? `<span class="ai-apply-change">${meta}</span>` : ''}</li>`;
+            }
             const task = tasks.find(t => t.id === u.id);
+            if (u.action === 'complete') {
+                return `<li><i class="fa-solid fa-check" style="color:#4ade80;margin-right:0.35rem"></i>Complete: ${escapeHTML(task.text)}</li>`;
+            }
+            if (u.action === 'delete') {
+                return `<li><i class="fa-solid fa-trash" style="color:#ff4466;margin-right:0.35rem"></i>Delete: ${escapeHTML(task.text)}</li>`;
+            }
+            // update
             const parts = [];
-            if (u.priority !== undefined) parts.push(`priority → <strong>${prioLabel[u.priority] || u.priority || 'None'}</strong>`);
+            if (u.priority !== undefined) parts.push(`priority → <strong>${prioLabel[u.priority] || 'None'}</strong>`);
             if (u.dueDate  !== undefined) parts.push(`due → <strong>${u.dueDate || 'cleared'}</strong>`);
+            if (u.text     !== undefined) parts.push(`renamed → <strong>${escapeHTML(u.text)}</strong>`);
             return `<li>${escapeHTML(task.text)}<span class="ai-apply-change">${parts.join(' · ')}</span></li>`;
         }).join('');
 
@@ -2796,7 +2896,7 @@ Rules for the ORBIT_UPDATES block:
         card.innerHTML = `
             <div class="ai-apply-header">
                 <i class="fa-solid fa-list-check"></i>
-                <span>${validUpdates.length} task${validUpdates.length > 1 ? 's' : ''} will be updated</span>
+                <span>${validUpdates.length} change${validUpdates.length > 1 ? 's' : ''} ready to apply</span>
             </div>
             <ul class="ai-apply-list">${lines}</ul>
             <div class="ai-apply-actions">
