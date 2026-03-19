@@ -44,9 +44,16 @@ CREATE POLICY "Acesso publico a templates"  ON public.templates  FOR ALL USING (
 -- ATUALIZAÇÃO: Novas colunas para tarefas
 -- Se a tabela já existe, rode estes comandos no SQL Editor do Supabase:
 -- =====================================================
-ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS priority     TEXT      DEFAULT NULL;
-ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS due_date     DATE      DEFAULT NULL;
-ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS notes        TEXT      DEFAULT '';
-ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS completed_at TIMESTAMPTZ DEFAULT NULL;
-ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS task_order   INTEGER   DEFAULT 0;
-ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS archived     BOOLEAN   DEFAULT FALSE;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS priority      TEXT        DEFAULT NULL;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS due_date      DATE        DEFAULT NULL;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS notes         TEXT        DEFAULT '';
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS completed_at  TIMESTAMPTZ DEFAULT NULL;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS task_order    INTEGER     DEFAULT 0;
+ALTER TABLE public.projects ADD COLUMN IF NOT EXISTS archived      BOOLEAN     DEFAULT FALSE;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS automatable   BOOLEAN     DEFAULT FALSE;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS ai_skill      BOOLEAN     DEFAULT FALSE;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS context       TEXT        DEFAULT NULL;
+
+-- Recurring tasks (run these in Supabase SQL Editor)
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS recurring     BOOLEAN     DEFAULT FALSE;
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS recurring_day TEXT        DEFAULT NULL;
