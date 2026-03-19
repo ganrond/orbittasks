@@ -2455,3 +2455,162 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
     0%, 100% { opacity: 0.75; }
     50%       { opacity: 0.45; }
 }
+
+/* ============================================================
+   NEW FEATURES: Energy, Aging, Streak, Workload, Today
+   ============================================================ */
+
+/* --- Today nav button --- */
+.today-nav-btn {
+    border-left: 2px solid var(--accent-primary) !important;
+    color: var(--accent-primary) !important;
+}
+.today-nav-btn.active {
+    background: rgba(77, 255, 196, 0.12) !important;
+}
+
+/* --- Energy buttons (composer) --- */
+.energy-btn {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    background: transparent;
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all var(--transition-fast);
+}
+.energy-btn-high:hover,
+.energy-btn-high.active {
+    background: rgba(251, 191, 36, 0.15);
+    border-color: rgba(251, 191, 36, 0.4);
+    color: #fbbf24;
+}
+.energy-btn-low:hover,
+.energy-btn-low.active {
+    background: rgba(52, 211, 153, 0.15);
+    border-color: rgba(52, 211, 153, 0.4);
+    color: #34d399;
+}
+
+/* --- Energy filter pills (popover) --- */
+.energy-filter-high:hover,
+.energy-filter-high.active {
+    background: rgba(251, 191, 36, 0.2) !important;
+    border-color: rgba(251, 191, 36, 0.5) !important;
+    color: #fbbf24 !important;
+}
+.energy-filter-low:hover,
+.energy-filter-low.active {
+    background: rgba(52, 211, 153, 0.2) !important;
+    border-color: rgba(52, 211, 153, 0.5) !important;
+    color: #34d399 !important;
+}
+
+/* --- Energy badges (task card) --- */
+.energy-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+.energy-high {
+    background: rgba(251, 191, 36, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+.energy-low {
+    background: rgba(52, 211, 153, 0.12);
+    color: #34d399;
+    border: 1px solid rgba(52, 211, 153, 0.25);
+}
+
+/* --- Aging badges (task card) --- */
+.aging-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-size: 0.68rem;
+    font-weight: 600;
+}
+.aging-warn {
+    background: rgba(245, 158, 11, 0.12);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.25);
+}
+.aging-stale {
+    background: rgba(239, 68, 68, 0.12);
+    color: #ef4444;
+    border: 1px solid rgba(239, 68, 68, 0.25);
+    animation: stale-pulse 3s ease-in-out infinite;
+}
+
+/* --- Streak count inside recurring badge --- */
+.streak-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: rgba(251, 146, 60, 0.3);
+    color: #fb923c;
+    font-size: 0.62rem;
+    font-weight: 700;
+    margin-left: 2px;
+}
+
+/* --- Project badge (in Today view) --- */
+.project-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px 7px;
+    border-radius: 100px;
+    font-size: 0.68rem;
+    font-weight: 500;
+    background: rgba(255,255,255,0.07);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    letter-spacing: 0.01em;
+}
+
+/* --- Workload meter --- */
+.workload-meter {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 5px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-size: 0.72rem;
+    font-weight: 600;
+    cursor: default;
+    transition: all var(--transition-fast);
+    white-space: nowrap;
+}
+.workload-meter[data-level="low"] {
+    color: #4dffc4;
+    border-color: rgba(77, 255, 196, 0.25);
+    background: rgba(77, 255, 196, 0.06);
+}
+.workload-meter[data-level="medium"] {
+    color: #fbbf24;
+    border-color: rgba(251, 191, 36, 0.3);
+    background: rgba(251, 191, 36, 0.07);
+}
+.workload-meter[data-level="high"] {
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.07);
+    animation: stale-pulse 2s ease-in-out infinite;
+}

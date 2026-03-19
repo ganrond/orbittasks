@@ -40,6 +40,7 @@ tasks    = tasks.map((t, i) => ({
     recurring:    false,
     recurringDay: null,
     archived:     false,
+    energy:       null,
     ...t,
     projectId: t.projectId || projects[0]?.id
 }));
@@ -49,7 +50,9 @@ let currentProjectId = localStorage.getItem('orbitCurrentProject') || projects[0
 let currentFilter = 'all';
 let currentContextFilter = null; // null | 'deep-work' | 'quick-win'
 let currentRecurringFilter = null; // null | 'recurring' | 'monday' ... 'sunday'
+let currentEnergyFilter = null; // null | 'high' | 'low'
 let currentSort = 'custom';
+let isTodayView = false;
 
 // Weekly Planning state
 let weeklyTaskIds = [];
@@ -77,9 +80,10 @@ let activeTimerTaskId = null;
 let timerInterval = null;
 let timeRemaining = pomodoroDuration;
 
-// Selected priority / context for new tasks
+// Selected priority / context / energy for new tasks
 let selectedPriority = '';
 let selectedContext  = '';
+let selectedEnergy   = '';
 
 // Drag state
 let dragSrcId = null;
@@ -221,17 +225,25 @@ async function init() {
                     recurring:    false,
                     recurringDay: null,
                     archived:     false,
+                    energy:       null,
                     ...t
                 }));
-                // Rescue fields from localStorage if Supabase columns are missing
+                // Rescue fields from localStorage if Supabase columns are missing.
+                // If Supabase returns null/falsy for a field but local has a value,
+                // the column likely wasn't migrated yet — use the local value.
                 tasks = tasks.map(t => {
                     const local = localTasksSnapshot.find(lt => lt.id === t.id);
                     if (!local) return t;
                     return {
                         ...t,
+                        dueDate:      t.dueDate      || local.dueDate      || null,
+                        priority:     t.priority     || local.priority     || null,
+                        notes:        t.notes        || local.notes        || '',
+                        context:      t.context      || local.context      || null,
                         recurring:    t.recurring    || local.recurring    || false,
                         recurringDay: t.recurringDay || local.recurringDay || null,
-                        archived:     t.archived     || local.archived     || false
+                        archived:     t.archived     || local.archived     || false,
+                        energy:       t.energy       || local.energy       || null
                     };
                 });
                 currentProjectId = projects.find(p => p.id === currentProjectId)
@@ -259,6 +271,19 @@ async function init() {
     initPrioritySelector();
     initAI();
     initCheckIn();
+    updateWorkloadMeter();
+
+    // Auto morning brief: 7am–12pm, once per day
+    const nowHour = new Date().getHours();
+    const todayKey = new Date().toISOString().split('T')[0];
+    if (nowHour >= 7 && nowHour < 12 && localStorage.getItem('orbitLastMorningBrief') !== todayKey) {
+        setTimeout(() => {
+            if (aiActions.openAndSend) {
+                aiActions.openAndSend('Give me a focused morning briefing based on my tasks. Tell me: (1) the 3 most important things to tackle today and why, (2) anything overdue I should address first, and (3) one thing I should NOT work on today so I stay focused.');
+                localStorage.setItem('orbitLastMorningBrief', todayKey);
+            }
+        }, 1500);
+    }
 }
 
 // --- Recurring Tasks ---
@@ -314,37 +339,99 @@ function checkRecurringTasks() {
     console.log(`[Recurring] Generated ${newTasks.length} task(s) for week of ${weekStartStr}`);
 }
 
+// --- Recurring Streak ---
+// Count consecutive weeks the same recurring task text was completed (via archived tasks)
+function getRecurringStreak(task) {
+    if (!task.recurring) return 0;
+    const completed = tasks
+        .filter(t => t.archived && t.projectId === task.projectId && t.text === task.text && t.completedAt)
+        .sort((a, b) => new Date(b.completedAt) - new Date(a.completedAt));
+    if (completed.length === 0) return 0;
+    let streak = 1;
+    for (let i = 1; i < completed.length; i++) {
+        const prev = new Date(completed[i - 1].completedAt);
+        const curr = new Date(completed[i].completedAt);
+        const diffWeeks = Math.round((prev - curr) / (7 * 24 * 60 * 60 * 1000));
+        if (diffWeeks === 1) streak++;
+        else break;
+    }
+    return streak;
+}
+
 // --- Browser Notifications / Reminders ---
 function initNotifications() {
     if (!('Notification' in window)) return;
 
-    // Only fire once per day
     const today = new Date().toISOString().split('T')[0];
-    if (localStorage.getItem('orbitLastNotification') === today) return;
+    const hour  = new Date().getHours();
 
-    const pending  = tasks.filter(t => !t.completed && t.dueDate);
-    const overdue  = pending.filter(t => t.dueDate < today);
-    const dueToday = pending.filter(t => t.dueDate === today);
-    if (overdue.length === 0 && dueToday.length === 0) return;
-
-    const fire = () => {
-        const parts = [];
-        if (overdue.length)  parts.push(`${overdue.length} overdue`);
-        if (dueToday.length) parts.push(`${dueToday.length} due today`);
-        const preview = [...overdue, ...dueToday].slice(0, 3).map(t => t.text).join(', ');
-        new Notification('Orbit Tasks', {
-            body: `${parts.join(' · ')}: ${preview}`,
-            icon: '/favicon.svg',
-            tag:  'orbit-reminder'
-        });
-        localStorage.setItem('orbitLastNotification', today);
+    const fireWithPermission = (fn) => {
+        if (Notification.permission === 'granted') {
+            fn();
+        } else if (Notification.permission !== 'denied') {
+            Notification.requestPermission().then(p => { if (p === 'granted') fn(); });
+        }
     };
 
-    if (Notification.permission === 'granted') {
-        fire();
-    } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(p => { if (p === 'granted') fire(); });
+    // Morning reminder (runs once per day)
+    if (localStorage.getItem('orbitLastNotification') !== today) {
+        const pending  = tasks.filter(t => !t.completed && !t.archived && t.dueDate);
+        const overdue  = pending.filter(t => t.dueDate < today);
+        const dueToday = pending.filter(t => t.dueDate === today);
+
+        if (overdue.length > 0 || dueToday.length > 0) {
+            fireWithPermission(() => {
+                const parts = [];
+                if (overdue.length)  parts.push(`${overdue.length} overdue`);
+                if (dueToday.length) parts.push(`${dueToday.length} due today`);
+                const preview = [...overdue, ...dueToday].slice(0, 3).map(t => t.text).join(', ');
+                new Notification('Orbit Tasks', {
+                    body: `${parts.join(' · ')}: ${preview}`,
+                    icon: '/favicon.svg',
+                    tag:  'orbit-reminder'
+                });
+                localStorage.setItem('orbitLastNotification', today);
+            });
+        }
     }
+
+    // End-of-day nudge: after 5pm, if you have pending tasks + completed some today
+    if (hour >= 17 && localStorage.getItem('orbitLastEodNudge') !== today) {
+        const pendingAll   = tasks.filter(t => !t.completed && !t.archived);
+        const completedToday = tasks.filter(t => t.completed && t.completedAt && t.completedAt.startsWith(today));
+        if (pendingAll.length > 0 && completedToday.length > 0) {
+            fireWithPermission(() => {
+                new Notification('Orbit — End of Day', {
+                    body: `Great work! ${completedToday.length} task${completedToday.length > 1 ? 's' : ''} done today. ${pendingAll.length} still pending for tomorrow.`,
+                    icon: '/favicon.svg',
+                    tag:  'orbit-eod'
+                });
+                localStorage.setItem('orbitLastEodNudge', today);
+            });
+        }
+    }
+}
+
+// --- Workload Meter ---
+function updateWorkloadMeter() {
+    const el = document.getElementById('workload-meter');
+    if (!el) return;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const weekEnd = new Date(today);
+    weekEnd.setDate(today.getDate() + 7);
+    const dueThisWeek = tasks.filter(t => !t.completed && !t.archived && t.dueDate).filter(t => {
+        const d = new Date(t.dueDate + 'T00:00:00');
+        return d >= today && d < weekEnd;
+    }).length;
+    const overdue = tasks.filter(t => !t.completed && !t.archived && t.dueDate && new Date(t.dueDate + 'T00:00:00') < today).length;
+    const total = dueThisWeek + overdue;
+    let level = 'low';
+    if (total >= 8) level = 'high';
+    else if (total >= 4) level = 'medium';
+    el.dataset.level = level;
+    el.title = `${total} task${total !== 1 ? 's' : ''} due this week${overdue > 0 ? ` (${overdue} overdue)` : ''}`;
+    el.querySelector('.workload-count').textContent = total;
 }
 
 // --- Data Persistence ---
@@ -445,7 +532,7 @@ function bindEvents() {
     const filterActiveBadge = document.getElementById('filter-active-badge');
 
     function updateFilterBadge() {
-        const count = (currentContextFilter ? 1 : 0) + (currentRecurringFilter ? 1 : 0);
+        const count = (currentContextFilter ? 1 : 0) + (currentRecurringFilter ? 1 : 0) + (currentEnergyFilter ? 1 : 0);
         if (filterActiveBadge) {
             filterActiveBadge.textContent = count;
             filterActiveBadge.classList.toggle('hidden', count === 0);
@@ -484,6 +571,47 @@ function bindEvents() {
             currentRecurringFilter = btn.dataset.recurringFilter === 'all' ? null : btn.dataset.recurringFilter;
             updateFilterBadge();
             renderTasks();
+        });
+    });
+
+    // Today view toggle
+    const todayViewBtn = document.getElementById('nav-today-btn');
+    if (todayViewBtn) {
+        todayViewBtn.addEventListener('click', () => {
+            isTodayView = true;
+            closeSidebar();
+            if (currentProjectTitle) currentProjectTitle.textContent = 'Today';
+            document.querySelector('[data-filter="all"]')?.click();
+            renderTasks();
+            // Highlight today button in sidebar
+            todayViewBtn.classList.add('active');
+        });
+    }
+
+    // Energy filter buttons (in popover)
+    document.querySelectorAll('.energy-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.energy-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentEnergyFilter = btn.dataset.energyFilter === 'all' ? null : btn.dataset.energyFilter;
+            updateFilterBadge();
+            renderTasks();
+        });
+    });
+
+    // Energy picker buttons (in composer)
+    document.querySelectorAll('.energy-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const val = btn.dataset.energy;
+            if (selectedEnergy === val) {
+                // Toggle off
+                document.querySelectorAll('.energy-btn').forEach(b => b.classList.remove('active'));
+                selectedEnergy = '';
+            } else {
+                document.querySelectorAll('.energy-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                selectedEnergy = val;
+            }
         });
     });
 
@@ -738,10 +866,15 @@ function switchProject(id) {
     }
 
     currentProjectId = id;
+    isTodayView = false;
     saveAll();
 
     const proj = projects.find(p => p.id === currentProjectId);
     if (currentProjectTitle) currentProjectTitle.textContent = proj?.name ?? '';
+
+    // Remove active state from Today button
+    const todayBtn = document.getElementById('nav-today-btn');
+    if (todayBtn) todayBtn.classList.remove('active');
 
     closeSidebar();
     renderSidebar();
@@ -756,6 +889,12 @@ function switchProject(id) {
     document.querySelectorAll('.recurring-filter-btn').forEach(b => b.classList.remove('active'));
     const allRecBtn = document.querySelector('.recurring-filter-btn[data-recurring-filter="all"]');
     if (allRecBtn) allRecBtn.classList.add('active');
+
+    currentEnergyFilter = null;
+    document.querySelectorAll('.energy-filter-btn').forEach(b => b.classList.remove('active'));
+    const allEnBtn = document.querySelector('.energy-filter-btn[data-energy-filter="all"]');
+    if (allEnBtn) allEnBtn.classList.add('active');
+
     const badge = document.getElementById('filter-active-badge');
     if (badge) badge.classList.add('hidden');
     const fmb = document.getElementById('filter-more-btn');
@@ -770,13 +909,22 @@ function switchProject(id) {
 function renderTasks() {
     taskList.innerHTML = '';
 
-    const projectTasks = tasks.filter(t => t.projectId === currentProjectId && !t.archived);
+    let projectTasks;
+    if (isTodayView) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        projectTasks = tasks.filter(t => !t.archived && !t.completed && t.dueDate && t.dueDate <= todayStr);
+    } else {
+        projectTasks = tasks.filter(t => t.projectId === currentProjectId && !t.archived);
+    }
+
     let filteredTasks = [...projectTasks];
 
-    if (currentFilter === 'pending') {
-        filteredTasks = projectTasks.filter(t => !t.completed);
-    } else if (currentFilter === 'completed') {
-        filteredTasks = projectTasks.filter(t => t.completed);
+    if (!isTodayView) {
+        if (currentFilter === 'pending') {
+            filteredTasks = projectTasks.filter(t => !t.completed);
+        } else if (currentFilter === 'completed') {
+            filteredTasks = projectTasks.filter(t => t.completed);
+        }
     }
 
     if (currentContextFilter) {
@@ -787,6 +935,10 @@ function renderTasks() {
         filteredTasks = filteredTasks.filter(t => t.recurring);
     } else if (currentRecurringFilter) {
         filteredTasks = filteredTasks.filter(t => t.recurring && t.recurringDay === currentRecurringFilter);
+    }
+
+    if (currentEnergyFilter) {
+        filteredTasks = filteredTasks.filter(t => t.energy === currentEnergyFilter);
     }
 
     // Apply Sorting
@@ -812,6 +964,13 @@ function renderTasks() {
     if (filteredTasks.length === 0) {
         taskList.style.display = 'none';
         emptyState.classList.add('visible');
+        if (isTodayView) {
+            emptyState.querySelector('h3').textContent = 'All clear for today!';
+            emptyState.querySelector('p').textContent = 'No tasks due today or overdue. Great job!';
+        } else {
+            emptyState.querySelector('h3').textContent = 'No tasks yet';
+            emptyState.querySelector('p').textContent = 'Add a task above to get started.';
+        }
     } else {
         taskList.style.display = 'flex';
         emptyState.classList.remove('visible');
@@ -873,13 +1032,42 @@ function createTaskElement(task) {
         notesIcon = `<i class="fa-solid fa-note-sticky notes-indicator" title="Tem notas"></i>`;
     }
 
-    // Recurring badge
+    // Recurring badge + streak
     let recurringBadge = '';
     if (task.recurring) {
         const dayLabel = task.recurringDay
             ? task.recurringDay.charAt(0).toUpperCase() + task.recurringDay.slice(1)
             : 'Weekly';
-        recurringBadge = `<span class="context-badge recurring-badge"><i class="fa-solid fa-rotate"></i> ${dayLabel}</span>`;
+        const streak = getRecurringStreak(task);
+        const streakHtml = streak >= 2 ? ` <span class="streak-count">${streak}</span>` : '';
+        recurringBadge = `<span class="context-badge recurring-badge"><i class="fa-solid fa-rotate"></i> ${dayLabel}${streakHtml}</span>`;
+    }
+
+    // Task aging badge
+    let agingBadge = '';
+    if (!task.completed && task.createdAt) {
+        const ageMs = Date.now() - new Date(task.createdAt).getTime();
+        const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+        if (ageDays >= 14) {
+            agingBadge = `<span class="aging-badge aging-stale" title="${ageDays} days old"><i class="fa-solid fa-hourglass-end"></i> ${ageDays}d</span>`;
+        } else if (ageDays >= 7) {
+            agingBadge = `<span class="aging-badge aging-warn" title="${ageDays} days old"><i class="fa-solid fa-hourglass-half"></i> ${ageDays}d</span>`;
+        }
+    }
+
+    // Energy badge
+    let energyBadge = '';
+    if (task.energy === 'high') {
+        energyBadge = `<span class="energy-badge energy-high" title="High energy task"><i class="fa-solid fa-bolt"></i></span>`;
+    } else if (task.energy === 'low') {
+        energyBadge = `<span class="energy-badge energy-low" title="Low energy task"><i class="fa-solid fa-leaf"></i></span>`;
+    }
+
+    // Project badge (shown in Today view)
+    let projectBadge = '';
+    if (isTodayView) {
+        const proj = projects.find(p => p.id === task.projectId);
+        if (proj) projectBadge = `<span class="project-badge">${escapeHTML(proj.name)}</span>`;
     }
 
     // Automation badge
@@ -918,6 +1106,9 @@ function createTaskElement(task) {
                         ${dueBadge}
                         ${contextBadge}
                         ${recurringBadge}
+                        ${energyBadge}
+                        ${agingBadge}
+                        ${projectBadge}
                     </div>
                 </div>
             </div>
@@ -1264,36 +1455,109 @@ function cloneProject(sourceId) {
     switchProject(newProjectId);
 }
 
+// --- Natural Language Task Parsing ---
+function parseNLTask(text) {
+    let dueDate = null;
+    let priority = null;
+    let cleanText = text;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const dateOf = (d) => d.toISOString().split('T')[0];
+    const nextWeekday = (targetDay) => {
+        const d = new Date(today);
+        const diff = (targetDay - d.getDay() + 7) % 7 || 7;
+        d.setDate(d.getDate() + diff);
+        return dateOf(d);
+    };
+
+    // Due date patterns
+    if (/\btomorrow\b/i.test(cleanText)) {
+        const t = new Date(today); t.setDate(t.getDate() + 1);
+        dueDate = dateOf(t);
+        cleanText = cleanText.replace(/\btomorrow\b/i, '').trim();
+    } else if (/\btoday\b/i.test(cleanText)) {
+        dueDate = dateOf(today);
+        cleanText = cleanText.replace(/\btoday\b/i, '').trim();
+    } else if (/\bnext week\b/i.test(cleanText)) {
+        const t = new Date(today); t.setDate(t.getDate() + 7);
+        dueDate = dateOf(t);
+        cleanText = cleanText.replace(/\bnext week\b/i, '').trim();
+    } else {
+        const days = { monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0 };
+        for (const [name, num] of Object.entries(days)) {
+            const re = new RegExp(`\\b(on\\s+)?${name}\\b`, 'i');
+            if (re.test(cleanText)) {
+                dueDate = nextWeekday(num);
+                cleanText = cleanText.replace(re, '').trim();
+                break;
+            }
+        }
+    }
+
+    // Priority patterns
+    if (/\b(urgent|asap|high priority|high prio)\b/i.test(cleanText)) {
+        priority = 'high';
+        cleanText = cleanText.replace(/\b(urgent|asap|high priority|high prio)\b/i, '').trim();
+    } else if (/\bmedium priority\b/i.test(cleanText)) {
+        priority = 'medium';
+        cleanText = cleanText.replace(/\bmedium priority\b/i, '').trim();
+    } else if (/\blow priority\b/i.test(cleanText)) {
+        priority = 'low';
+        cleanText = cleanText.replace(/\blow priority\b/i, '').trim();
+    }
+
+    // Clean up extra commas, multiple spaces
+    cleanText = cleanText.replace(/\s{2,}/g, ' ').replace(/^[,\s]+|[,\s]+$/g, '').trim();
+
+    return { text: cleanText || text, dueDate, priority };
+}
+
 // --- Task Operations ---
 function addTask(e) {
     e.preventDefault();
-    const taskText = taskInput.value.trim();
-    if (!taskText) return;
+    const rawText = taskInput.value.trim();
+    if (!rawText) return;
+
+    // Parse natural language
+    const parsed = parseNLTask(rawText);
+    const taskText = parsed.text;
 
     // Assign order: new tasks appear at the top (lowest order value)
     const projectTasks = tasks.filter(t => t.projectId === currentProjectId);
     const minOrder = projectTasks.length > 0 ? Math.min(...projectTasks.map(t => t.order ?? 0)) : 0;
 
     const taskDueInput = document.getElementById('task-due-input');
+    const resolvedDueDate = taskDueInput?.value || parsed.dueDate || null;
+    const resolvedPriority = selectedPriority || parsed.priority || null;
+
+    // Show toast if NL parsing found something
+    if (parsed.dueDate && !taskDueInput?.value) showToast(`Due: ${formatDueDate(parsed.dueDate)}`, 'info');
+    if (parsed.priority && !selectedPriority) showToast(`Priority: ${parsed.priority}`, 'info');
+
     const newTask = {
         id:           generateId(),
         projectId:    currentProjectId,
         text:         taskText,
         completed:    false,
         timeSpent:    0,
-        priority:     selectedPriority || null,
-        dueDate:      taskDueInput?.value || null,
+        priority:     resolvedPriority,
+        dueDate:      resolvedDueDate,
         context:      selectedContext || null,
+        energy:       selectedEnergy  || null,
         notes:        '',
         completedAt:  null,
         order:        minOrder - 1,
         createdAt:    new Date().toISOString(),
         recurring:    false,
-        recurringDay: null
+        recurringDay: null,
+        archived:     false
     };
 
     tasks.unshift(newTask);
     saveAll();
+    updateWorkloadMeter();
     taskInput.value = '';
     if (taskDueInput) taskDueInput.value = '';
     // Reset context picker
@@ -1301,6 +1565,9 @@ function addTask(e) {
     const noneCtxBtn = document.querySelector('.context-btn[data-context=""]');
     if (noneCtxBtn) noneCtxBtn.classList.add('active');
     selectedContext = '';
+    // Reset energy picker
+    document.querySelectorAll('.energy-btn').forEach(b => b.classList.remove('active'));
+    selectedEnergy = '';
 
     if (currentFilter === 'completed') {
         document.querySelector('[data-filter="all"]').click();
@@ -1309,8 +1576,8 @@ function addTask(e) {
         renderSidebar();
     }
 
-    // Auto-suggest priority if user didn't pick one
-    if (!selectedPriority && aiActions.autoSuggestPriority) {
+    // Auto-suggest priority if user didn't pick one and NL didn't detect one
+    if (!resolvedPriority && aiActions.autoSuggestPriority) {
         aiActions.autoSuggestPriority(newTask.id, newTask.text);
     }
 }
@@ -2376,7 +2643,7 @@ document.addEventListener('DOMContentLoaded', init);
 // =====================================================
 
 // Bridge: lets createTaskElement call functions defined inside initAI
-const aiActions = { openGuide: null, openSkillGuide: null, breakdownTask: null, autoSuggestPriority: null, openSettings: null, openWithPrompt: null };
+const aiActions = { openGuide: null, openSkillGuide: null, breakdownTask: null, autoSuggestPriority: null, openSettings: null, openWithPrompt: null, openAndSend: null };
 
 function initAI() {
     const fab           = document.getElementById('ai-fab');
@@ -2607,7 +2874,8 @@ function initAI() {
                     dueDate:      t.dueDate  || null,
                     timeSpent:    t.timeSpent ? `${Math.round(t.timeSpent/60)}m` : null,
                     notes:        t.notes || null,
-                    recurringDay: t.recurringDay || null
+                    recurringDay: t.recurringDay || null,
+                    energy:       t.energy || null
                 })),
                 recentlyCompleted: recentDone.map(t => ({
                     text:        t.text,
@@ -3285,8 +3553,11 @@ Structure your response:
     aiActions.openSettings        = () => { openPanel(); settingsPanel.classList.add('open'); };
     aiActions.openWithPrompt      = (prompt) => {
         openPanel();
-        // Small delay to let panel animate in before sending
         setTimeout(() => sendMessage(prompt), 120);
+    };
+    aiActions.openAndSend         = (prompt) => {
+        openPanel();
+        setTimeout(() => sendMessage(prompt), 400);
     };
 
     // Wire scan button

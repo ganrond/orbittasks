@@ -60,3 +60,6 @@ ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS recurring_day TEXT        D
 
 -- Soft delete for completed tasks (run in Supabase SQL Editor)
 ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS archived      BOOLEAN     DEFAULT FALSE;
+
+-- Energy tagging
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS energy        TEXT        DEFAULT NULL;

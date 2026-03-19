@@ -110,6 +110,7 @@
             </div>
 
             <div class="sidebar-section">
+                <button id="nav-today-btn" class="history-nav-btn today-nav-btn"><i class="fa-solid fa-star"></i> Today</button>
                 <button id="nav-checkin-btn" class="history-nav-btn checkin-nav-btn"><i class="fa-solid fa-sun"></i> Daily Check-In</button>
                 <button id="nav-weekly-btn" class="history-nav-btn weekly-nav-btn"><i class="fa-solid fa-calendar-week"></i> Weekly Planning</button>
                 <button id="nav-history-btn" class="history-nav-btn"><i class="fa-solid fa-clock-rotate-left"></i> View History</button>
@@ -190,6 +191,11 @@
                             <button type="button" class="context-btn context-btn-quick" data-context="quick-win"><i class="fa-solid fa-bolt"></i> Quick</button>
                         </div>
                         <span class="composer-sep"></span>
+                        <div class="composer-group">
+                            <button type="button" class="energy-btn energy-btn-high" data-energy="high" title="High energy task"><i class="fa-solid fa-bolt"></i></button>
+                            <button type="button" class="energy-btn energy-btn-low" data-energy="low" title="Low energy task"><i class="fa-solid fa-leaf"></i></button>
+                        </div>
+                        <span class="composer-sep"></span>
                         <label class="due-input-label composer-date">
                             <i class="fa-regular fa-calendar"></i>
                             <input type="date" id="task-due-input" class="task-due-date-input">
@@ -243,6 +249,15 @@
                             </div>
                             <div class="popover-divider"></div>
                             <div class="popover-section">
+                                <div class="popover-label">Energy</div>
+                                <div class="popover-pills">
+                                    <button class="energy-filter-btn active" data-energy-filter="all">All</button>
+                                    <button class="energy-filter-btn energy-filter-high" data-energy-filter="high"><i class="fa-solid fa-bolt"></i> High</button>
+                                    <button class="energy-filter-btn energy-filter-low" data-energy-filter="low"><i class="fa-solid fa-leaf"></i> Low</button>
+                                </div>
+                            </div>
+                            <div class="popover-divider"></div>
+                            <div class="popover-section">
                                 <div class="popover-label">Recurring</div>
                                 <div class="popover-pills">
                                     <button class="recurring-filter-btn active" data-recurring-filter="all">All</button>
@@ -269,6 +284,11 @@
                         <option value="newest">Newest First</option>
                         <option value="oldest">Oldest First</option>
                     </select>
+
+                    <div id="workload-meter" class="workload-meter" data-level="low" title="Tasks due this week">
+                        <i class="fa-solid fa-gauge-high"></i>
+                        <span class="workload-count">0</span>
+                    </div>
 
                     <div class="project-actions">
                         <button id="clear-completed-btn" class="icon-action-btn" title="Clear completed tasks"><i class="fa-solid fa-broom"></i></button>
