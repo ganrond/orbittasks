@@ -439,12 +439,39 @@ function bindEvents() {
         });
     });
 
+    // Filter popover
+    const filterMoreBtn = document.getElementById('filter-more-btn');
+    const filterPopover = document.getElementById('filter-popover');
+    const filterActiveBadge = document.getElementById('filter-active-badge');
+
+    function updateFilterBadge() {
+        const count = (currentContextFilter ? 1 : 0) + (currentRecurringFilter ? 1 : 0);
+        if (filterActiveBadge) {
+            filterActiveBadge.textContent = count;
+            filterActiveBadge.classList.toggle('hidden', count === 0);
+        }
+        if (filterMoreBtn) filterMoreBtn.classList.toggle('active', count > 0);
+    }
+
+    if (filterMoreBtn && filterPopover) {
+        filterMoreBtn.addEventListener('click', e => {
+            e.stopPropagation();
+            filterPopover.classList.toggle('hidden');
+        });
+        document.addEventListener('click', e => {
+            if (!filterPopover.contains(e.target) && e.target !== filterMoreBtn) {
+                filterPopover.classList.add('hidden');
+            }
+        });
+    }
+
     // Context filter buttons (in task list header)
     document.querySelectorAll('.context-filter-btn').forEach(btn => {
         btn.addEventListener('click', () => {
             document.querySelectorAll('.context-filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentContextFilter = btn.dataset.contextFilter === 'all' ? null : btn.dataset.contextFilter;
+            updateFilterBadge();
             renderTasks();
         });
     });
@@ -455,6 +482,7 @@ function bindEvents() {
             document.querySelectorAll('.recurring-filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             currentRecurringFilter = btn.dataset.recurringFilter === 'all' ? null : btn.dataset.recurringFilter;
+            updateFilterBadge();
             renderTasks();
         });
     });
@@ -728,6 +756,10 @@ function switchProject(id) {
     document.querySelectorAll('.recurring-filter-btn').forEach(b => b.classList.remove('active'));
     const allRecBtn = document.querySelector('.recurring-filter-btn[data-recurring-filter="all"]');
     if (allRecBtn) allRecBtn.classList.add('active');
+    const badge = document.getElementById('filter-active-badge');
+    if (badge) badge.classList.add('hidden');
+    const fmb = document.getElementById('filter-more-btn');
+    if (fmb) fmb.classList.remove('active');
 
     const canDelete = activeProjects.length > 1;
     deleteProjectBtn.disabled = !canDelete;

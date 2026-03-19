@@ -174,24 +174,32 @@
                         <i class="fa-solid fa-plus"></i>
                     </button>
                 </div>
-                <div class="priority-row" id="priority-row">
-                    <span class="priority-label">Priority:</span>
-                    <button type="button" class="prio-btn active" data-prio="">—</button>
-                    <button type="button" class="prio-btn prio-high" data-prio="high">High</button>
-                    <button type="button" class="prio-btn prio-medium" data-prio="medium">Medium</button>
-                    <button type="button" class="prio-btn prio-low" data-prio="low">Low</button>
-                    <span class="priority-row-sep"></span>
-                    <button type="button" class="context-btn active" data-context=""><i class="fa-solid fa-minus"></i></button>
-                    <button type="button" class="context-btn context-btn-deep" data-context="deep-work"><i class="fa-solid fa-brain"></i> Deep</button>
-                    <button type="button" class="context-btn context-btn-quick" data-context="quick-win"><i class="fa-solid fa-bolt"></i> Quick</button>
-                    <label class="due-input-label"><i class="fa-regular fa-calendar"></i>
-                        <input type="date" id="task-due-input" class="task-due-date-input">
-                    </label>
+
+                <div class="composer-toolbar" id="priority-row">
+                    <div class="composer-left">
+                        <div class="composer-group">
+                            <button type="button" class="prio-btn active" data-prio="">—</button>
+                            <button type="button" class="prio-btn prio-high" data-prio="high">High</button>
+                            <button type="button" class="prio-btn prio-medium" data-prio="medium">Med</button>
+                            <button type="button" class="prio-btn prio-low" data-prio="low">Low</button>
+                        </div>
+                        <span class="composer-sep"></span>
+                        <div class="composer-group">
+                            <button type="button" class="context-btn active" data-context=""><i class="fa-solid fa-minus"></i></button>
+                            <button type="button" class="context-btn context-btn-deep" data-context="deep-work"><i class="fa-solid fa-brain"></i> Deep</button>
+                            <button type="button" class="context-btn context-btn-quick" data-context="quick-win"><i class="fa-solid fa-bolt"></i> Quick</button>
+                        </div>
+                        <span class="composer-sep"></span>
+                        <label class="due-input-label composer-date">
+                            <i class="fa-regular fa-calendar"></i>
+                            <input type="date" id="task-due-input" class="task-due-date-input">
+                        </label>
+                    </div>
                     <button type="button" id="voice-help-toggle" class="voice-help-toggle" title="Voice commands">
-                        <i class="fa-solid fa-microphone"></i>
-                        <i class="fa-solid fa-question"></i>
+                        <i class="fa-solid fa-microphone"></i><i class="fa-solid fa-question"></i>
                     </button>
                 </div>
+
                 <div id="voice-help" class="voice-help">
                     <div class="voice-help-triggers">
                         <span class="voice-chip voice-chip-wake"><i class="fa-solid fa-microphone-lines"></i> Hey Orbit</span>
@@ -210,51 +218,63 @@
                 </div>
             </form>
 
-            <div class="filters-actions">
-                <div class="filters-group">
-                    <div class="filters">
-                        <button class="filter-btn active" data-filter="all">All</button>
-                        <button class="filter-btn" data-filter="pending">Pending</button>
-                        <button class="filter-btn" data-filter="completed">Completed</button>
-                    </div>
-                    <div class="filters context-filters">
-                        <button class="context-filter-btn active" data-context-filter="all">All</button>
-                        <button class="context-filter-btn context-filter-deep" data-context-filter="deep-work"><i class="fa-solid fa-brain"></i> Deep Work</button>
-                        <button class="context-filter-btn context-filter-quick" data-context-filter="quick-win"><i class="fa-solid fa-bolt"></i> Quick Win</button>
-                    </div>
-                    <div class="filters recurring-filters">
-                        <button class="recurring-filter-btn active" data-recurring-filter="all">All</button>
-                        <button class="recurring-filter-btn recurring-filter-any" data-recurring-filter="recurring"><i class="fa-solid fa-rotate"></i> Recurring</button>
-                        <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="monday">Mon</button>
-                        <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="tuesday">Tue</button>
-                        <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="wednesday">Wed</button>
-                        <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="thursday">Thu</button>
-                        <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="friday">Fri</button>
-                        <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="saturday">Sat</button>
-                        <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="sunday">Sun</button>
-                    </div>
-                    <div class="sort-dropdown">
-                        <label for="sort-select" class="visually-hidden">Sort tasks</label>
-                        <select id="sort-select" class="sort-select">
-                            <option value="custom">Custom Order</option>
-                            <option value="due-date">Due Date</option>
-                            <option value="time-desc">Time Spent (Most)</option>
-                            <option value="time-asc">Time Spent (Least)</option>
-                            <option value="newest">Newest First</option>
-                            <option value="oldest">Oldest First</option>
-                        </select>
-                    </div>
+            <div class="filter-bar">
+                <div class="filter-tab-group">
+                    <button class="filter-btn active" data-filter="all">All</button>
+                    <button class="filter-btn" data-filter="pending">Pending</button>
+                    <button class="filter-btn" data-filter="completed">Done</button>
                 </div>
-                <div class="project-actions">
-                    <button id="clear-completed-btn" class="text-btn outline" title="Clear completed tasks">
-                        <i class="fa-solid fa-broom"></i> <span class="action-text">Clear</span>
-                    </button>
-                    <button id="complete-all-btn" class="text-btn outline" title="Complete All Tasks">
-                        <i class="fa-solid fa-check-double"></i> <span class="action-text">Complete All</span>
-                    </button>
-                    <button id="delete-project-btn" class="text-btn danger" title="Delete Project">
-                        <i class="fa-solid fa-trash"></i> <span class="action-text">Delete</span>
-                    </button>
+
+                <div class="filter-bar-right">
+                    <div class="filter-popover-wrap">
+                        <button class="filter-more-btn" id="filter-more-btn" title="More filters">
+                            <i class="fa-solid fa-sliders"></i>
+                            <span>Filter</span>
+                            <span class="filter-active-badge hidden" id="filter-active-badge">0</span>
+                        </button>
+                        <div class="filter-popover hidden" id="filter-popover">
+                            <div class="popover-section">
+                                <div class="popover-label">Context</div>
+                                <div class="popover-pills">
+                                    <button class="context-filter-btn active" data-context-filter="all">All</button>
+                                    <button class="context-filter-btn context-filter-deep" data-context-filter="deep-work"><i class="fa-solid fa-brain"></i> Deep Work</button>
+                                    <button class="context-filter-btn context-filter-quick" data-context-filter="quick-win"><i class="fa-solid fa-bolt"></i> Quick Win</button>
+                                </div>
+                            </div>
+                            <div class="popover-divider"></div>
+                            <div class="popover-section">
+                                <div class="popover-label">Recurring</div>
+                                <div class="popover-pills">
+                                    <button class="recurring-filter-btn active" data-recurring-filter="all">All</button>
+                                    <button class="recurring-filter-btn recurring-filter-any" data-recurring-filter="recurring"><i class="fa-solid fa-rotate"></i> Any</button>
+                                </div>
+                                <div class="popover-days">
+                                    <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="monday"    title="Monday">M</button>
+                                    <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="tuesday"   title="Tuesday">T</button>
+                                    <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="wednesday" title="Wednesday">W</button>
+                                    <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="thursday"  title="Thursday">T</button>
+                                    <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="friday"    title="Friday">F</button>
+                                    <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="saturday"  title="Saturday">S</button>
+                                    <button class="recurring-filter-btn recurring-filter-day" data-recurring-filter="sunday"    title="Sunday">S</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <select id="sort-select" class="sort-select">
+                        <option value="custom">Custom Order</option>
+                        <option value="due-date">Due Date</option>
+                        <option value="time-desc">Time Spent (Most)</option>
+                        <option value="time-asc">Time Spent (Least)</option>
+                        <option value="newest">Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                    </select>
+
+                    <div class="project-actions">
+                        <button id="clear-completed-btn" class="icon-action-btn" title="Clear completed tasks"><i class="fa-solid fa-broom"></i></button>
+                        <button id="complete-all-btn"    class="icon-action-btn" title="Complete All Tasks"><i class="fa-solid fa-check-double"></i></button>
+                        <button id="delete-project-btn"  class="icon-action-btn danger-action" title="Delete Project"><i class="fa-solid fa-trash"></i></button>
+                    </div>
                 </div>
             </div>
 
