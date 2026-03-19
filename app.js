@@ -194,6 +194,13 @@ async function init() {
 
     // Se Supabase estiver configurado, carrega dados da nuvem
     if (dbEnabled) {
+        // Snapshot localStorage BEFORE Supabase load so we can rescue fields
+        // that may be missing from Supabase (e.g. columns not yet migrated).
+        let localTasksSnapshot = [];
+        try {
+            localTasksSnapshot = JSON.parse(localStorage.getItem('orbitTasks') || '[]');
+        } catch(e) {}
+
         try {
             const dbData = await dbLoadAll();
 
@@ -214,6 +221,16 @@ async function init() {
                     recurringDay: null,
                     ...t
                 }));
+                // Rescue recurring fields from localStorage if Supabase columns are missing
+                tasks = tasks.map(t => {
+                    const local = localTasksSnapshot.find(lt => lt.id === t.id);
+                    if (!local) return t;
+                    return {
+                        ...t,
+                        recurring:    t.recurring    || local.recurring    || false,
+                        recurringDay: t.recurringDay || local.recurringDay || null
+                    };
+                });
                 currentProjectId = projects.find(p => p.id === currentProjectId)
                     ? currentProjectId
                     : projects[0].id;
