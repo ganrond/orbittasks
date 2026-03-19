@@ -47,6 +47,7 @@ projects = projects.map((p, i) => ({ archived: false, order: i, ...p }));
 let currentProjectId = localStorage.getItem('orbitCurrentProject') || projects[0]?.id;
 let currentFilter = 'all';
 let currentContextFilter = null; // null | 'deep-work' | 'quick-win'
+let currentRecurringFilter = null; // null | 'recurring' | 'monday' ... 'sunday'
 let currentSort = 'custom';
 
 // Weekly Planning state
@@ -394,6 +395,16 @@ function bindEvents() {
         });
     });
 
+    // Recurring filter buttons
+    document.querySelectorAll('.recurring-filter-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            document.querySelectorAll('.recurring-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            currentRecurringFilter = btn.dataset.recurringFilter === 'all' ? null : btn.dataset.recurringFilter;
+            renderTasks();
+        });
+    });
+
     // Context picker buttons (in add form)
     document.querySelectorAll('.context-btn').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -659,6 +670,11 @@ function switchProject(id) {
     const allCtxBtn = document.querySelector('.context-filter-btn[data-context-filter="all"]');
     if (allCtxBtn) allCtxBtn.classList.add('active');
 
+    currentRecurringFilter = null;
+    document.querySelectorAll('.recurring-filter-btn').forEach(b => b.classList.remove('active'));
+    const allRecBtn = document.querySelector('.recurring-filter-btn[data-recurring-filter="all"]');
+    if (allRecBtn) allRecBtn.classList.add('active');
+
     const canDelete = activeProjects.length > 1;
     deleteProjectBtn.disabled = !canDelete;
     deleteProjectBtn.style.opacity = canDelete ? '1' : '0.5';
@@ -679,6 +695,12 @@ function renderTasks() {
 
     if (currentContextFilter) {
         filteredTasks = filteredTasks.filter(t => t.context === currentContextFilter);
+    }
+
+    if (currentRecurringFilter === 'recurring') {
+        filteredTasks = filteredTasks.filter(t => t.recurring);
+    } else if (currentRecurringFilter) {
+        filteredTasks = filteredTasks.filter(t => t.recurring && t.recurringDay === currentRecurringFilter);
     }
 
     // Apply Sorting
