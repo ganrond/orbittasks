@@ -32,11 +32,13 @@ if (templates.length === 0) templates = [...defaultTemplates];
 
 // Backward compat: ensure all tasks and projects have required fields
 tasks    = tasks.map((t, i) => ({
-    priority:    null,
-    dueDate:     null,
-    notes:       '',
-    completedAt: null,
-    order:       i,
+    priority:     null,
+    dueDate:      null,
+    notes:        '',
+    completedAt:  null,
+    order:        i,
+    recurring:    false,
+    recurringDay: null,
     ...t,
     projectId: t.projectId || projects[0]?.id
 }));
@@ -202,11 +204,13 @@ async function init() {
                 templates  = dbData.templates.length > 0 ? dbData.templates : templates;
                 // Ensure backward compat on cloud data too
                 tasks = tasks.map((t, i) => ({
-                    priority:    null,
-                    dueDate:     null,
-                    notes:       '',
-                    completedAt: null,
-                    order:       i,
+                    priority:     null,
+                    dueDate:      null,
+                    notes:        '',
+                    completedAt:  null,
+                    order:        i,
+                    recurring:    false,
+                    recurringDay: null,
                     ...t
                 }));
                 currentProjectId = projects.find(p => p.id === currentProjectId)
@@ -224,6 +228,7 @@ async function init() {
         }
     }
 
+    checkRecurringTasks();
     renderSidebar();
     switchProject(currentProjectId);
     initVoiceControl();
@@ -232,6 +237,59 @@ async function init() {
     initPrioritySelector();
     initAI();
     initCheckIn();
+}
+
+// --- Recurring Tasks ---
+function getWeekStart(date) {
+    const d = new Date(date);
+    const day = d.getDay(); // 0=Sun, 1=Mon ...
+    const diff = (day === 0) ? -6 : 1 - day; // shift to Monday
+    d.setDate(d.getDate() + diff);
+    d.setHours(0, 0, 0, 0);
+    return d;
+}
+
+function checkRecurringTasks() {
+    const today = new Date();
+    const weekStart = getWeekStart(today);
+    const weekStartStr = weekStart.toISOString().split('T')[0];
+
+    const lastCheck = localStorage.getItem('orbitRecurringWeek');
+    if (lastCheck === weekStartStr) return; // already processed this week
+
+    const dayOffset = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
+
+    const recurringTasks = tasks.filter(t => t.recurring);
+    if (recurringTasks.length === 0) {
+        localStorage.setItem('orbitRecurringWeek', weekStartStr);
+        return;
+    }
+
+    const newTasks = recurringTasks.map(t => {
+        let dueDate = null;
+        if (t.recurringDay && dayOffset[t.recurringDay] !== undefined) {
+            const d = new Date(weekStart);
+            d.setDate(weekStart.getDate() + dayOffset[t.recurringDay]);
+            dueDate = d.toISOString().split('T')[0];
+        }
+        const projectTasks = tasks.filter(task => task.projectId === t.projectId);
+        const minOrder = projectTasks.length > 0 ? Math.min(...projectTasks.map(task => task.order ?? 0)) : 0;
+        return {
+            ...t,
+            id:          generateId(),
+            completed:   false,
+            completedAt: null,
+            timeSpent:   0,
+            dueDate:     dueDate,
+            order:       minOrder - 1,
+            createdAt:   new Date().toISOString()
+        };
+    });
+
+    tasks = [...newTasks, ...tasks];
+    saveAll();
+    localStorage.setItem('orbitRecurringWeek', weekStartStr);
+    console.log(`[Recurring] Generated ${newTasks.length} task(s) for week of ${weekStartStr}`);
 }
 
 // --- Data Persistence ---
@@ -707,6 +765,15 @@ function createTaskElement(task) {
         notesIcon = `<i class="fa-solid fa-note-sticky notes-indicator" title="Tem notas"></i>`;
     }
 
+    // Recurring badge
+    let recurringBadge = '';
+    if (task.recurring) {
+        const dayLabel = task.recurringDay
+            ? task.recurringDay.charAt(0).toUpperCase() + task.recurringDay.slice(1)
+            : 'Weekly';
+        recurringBadge = `<span class="context-badge recurring-badge"><i class="fa-solid fa-rotate"></i> ${dayLabel}</span>`;
+    }
+
     // Automation badge
     const autoBadge = task.automatable
         ? `<button class="auto-badge" title="This task may be automatable — click for a free setup guide"><i class="fa-solid fa-robot"></i></button>`
@@ -742,6 +809,7 @@ function createTaskElement(task) {
                         ${timeBadge}
                         ${dueBadge}
                         ${contextBadge}
+                        ${recurringBadge}
                     </div>
                 </div>
             </div>
@@ -761,6 +829,24 @@ function createTaskElement(task) {
                 <div class="task-extra-field">
                     <label class="extra-label"><i class="fa-regular fa-calendar"></i> Due Date</label>
                     <input type="date" class="task-due-input extra-input" value="${task.dueDate || ''}">
+                </div>
+                <div class="task-extra-field">
+                    <label class="extra-label"><i class="fa-solid fa-rotate"></i> Repeats Weekly</label>
+                    <div class="recurring-control">
+                        <button class="recurring-toggle-btn ${task.recurring ? 'active' : ''}" title="Toggle weekly repeat">
+                            ${task.recurring ? '<i class="fa-solid fa-toggle-on"></i> On' : '<i class="fa-solid fa-toggle-off"></i> Off'}
+                        </button>
+                        <select class="recurring-day-select extra-input ${task.recurring ? '' : 'hidden'}" title="Day of week">
+                            <option value="" ${!task.recurringDay ? 'selected' : ''}>Any day</option>
+                            <option value="monday"    ${task.recurringDay === 'monday'    ? 'selected' : ''}>Monday</option>
+                            <option value="tuesday"   ${task.recurringDay === 'tuesday'   ? 'selected' : ''}>Tuesday</option>
+                            <option value="wednesday" ${task.recurringDay === 'wednesday' ? 'selected' : ''}>Wednesday</option>
+                            <option value="thursday"  ${task.recurringDay === 'thursday'  ? 'selected' : ''}>Thursday</option>
+                            <option value="friday"    ${task.recurringDay === 'friday'    ? 'selected' : ''}>Friday</option>
+                            <option value="saturday"  ${task.recurringDay === 'saturday'  ? 'selected' : ''}>Saturday</option>
+                            <option value="sunday"    ${task.recurringDay === 'sunday'    ? 'selected' : ''}>Sunday</option>
+                        </select>
+                    </div>
                 </div>
                 <div class="task-extra-field">
                     <label class="extra-label"><i class="fa-regular fa-note-sticky"></i> Notes</label>
@@ -830,6 +916,23 @@ function createTaskElement(task) {
     });
     notesInput.addEventListener('change', (e) => {
         updateTaskField(task.id, 'notes', e.target.value, false);
+    });
+
+    // Recurring toggle
+    const recurringToggle = li.querySelector('.recurring-toggle-btn');
+    const recurringDaySelect = li.querySelector('.recurring-day-select');
+    recurringToggle.addEventListener('click', () => {
+        const newVal = !task.recurring;
+        task.recurring = newVal;
+        recurringToggle.innerHTML = newVal
+            ? '<i class="fa-solid fa-toggle-on"></i> On'
+            : '<i class="fa-solid fa-toggle-off"></i> Off';
+        recurringToggle.classList.toggle('active', newVal);
+        recurringDaySelect.classList.toggle('hidden', !newVal);
+        updateTaskField(task.id, 'recurring', newVal, false);
+    });
+    recurringDaySelect.addEventListener('change', (e) => {
+        updateTaskField(task.id, 'recurringDay', e.target.value || null, false);
     });
 
     // AI breakdown button
@@ -1065,18 +1168,20 @@ function addTask(e) {
 
     const taskDueInput = document.getElementById('task-due-input');
     const newTask = {
-        id:          generateId(),
-        projectId:   currentProjectId,
-        text:        taskText,
-        completed:   false,
-        timeSpent:   0,
-        priority:    selectedPriority || null,
-        dueDate:     taskDueInput?.value || null,
-        context:     selectedContext || null,
-        notes:       '',
-        completedAt: null,
-        order:       minOrder - 1,
-        createdAt:   new Date().toISOString()
+        id:           generateId(),
+        projectId:    currentProjectId,
+        text:         taskText,
+        completed:    false,
+        timeSpent:    0,
+        priority:     selectedPriority || null,
+        dueDate:      taskDueInput?.value || null,
+        context:      selectedContext || null,
+        notes:        '',
+        completedAt:  null,
+        order:        minOrder - 1,
+        createdAt:    new Date().toISOString(),
+        recurring:    false,
+        recurringDay: null
     };
 
     tasks.unshift(newTask);

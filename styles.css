@@ -1279,6 +1279,15 @@ body {
 .context-badge { font-family: 'DM Sans', sans-serif; font-size: 0.65rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 20px; display: inline-flex; align-items: center; gap: 0.25rem; white-space: nowrap; border: 1px solid; }
 .context-deep-work  { color: #818cf8; border-color: rgba(129,140,248,0.35); background: rgba(129,140,248,0.08); }
 .context-quick-win  { color: #4ade80; border-color: rgba(74,222,128,0.35);  background: rgba(74,222,128,0.08); }
+.recurring-badge    { color: #fb923c; border-color: rgba(251,146,60,0.35);  background: rgba(251,146,60,0.08); }
+
+/* Recurring controls */
+.recurring-control { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.recurring-toggle-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: var(--radius-sm); padding: 0.35rem 0.7rem; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 600; cursor: pointer; transition: var(--transition-fast); display: flex; align-items: center; gap: 0.35rem; white-space: nowrap; }
+.recurring-toggle-btn.active { color: #fb923c; border-color: rgba(251,146,60,0.5); background: rgba(251,146,60,0.1); }
+.recurring-toggle-btn:hover { border-color: var(--border-accent); color: var(--text-main); }
+.recurring-day-select { flex: 1; min-width: 100px; max-width: 160px; cursor: pointer; }
+.recurring-day-select.hidden { display: none; }
 
 /* Context filter buttons (task list) */
 .context-filters { margin-top: 0.35rem; }
