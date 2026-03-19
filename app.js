@@ -39,6 +39,7 @@ tasks    = tasks.map((t, i) => ({
     order:        i,
     recurring:    false,
     recurringDay: null,
+    archived:     false,
     ...t,
     projectId: t.projectId || projects[0]?.id
 }));
@@ -219,16 +220,18 @@ async function init() {
                     order:        i,
                     recurring:    false,
                     recurringDay: null,
+                    archived:     false,
                     ...t
                 }));
-                // Rescue recurring fields from localStorage if Supabase columns are missing
+                // Rescue fields from localStorage if Supabase columns are missing
                 tasks = tasks.map(t => {
                     const local = localTasksSnapshot.find(lt => lt.id === t.id);
                     if (!local) return t;
                     return {
                         ...t,
                         recurring:    t.recurring    || local.recurring    || false,
-                        recurringDay: t.recurringDay || local.recurringDay || null
+                        recurringDay: t.recurringDay || local.recurringDay || null,
+                        archived:     t.archived     || local.archived     || false
                     };
                 });
                 currentProjectId = projects.find(p => p.id === currentProjectId)
@@ -735,7 +738,7 @@ function switchProject(id) {
 function renderTasks() {
     taskList.innerHTML = '';
 
-    const projectTasks = tasks.filter(t => t.projectId === currentProjectId);
+    const projectTasks = tasks.filter(t => t.projectId === currentProjectId && !t.archived);
     let filteredTasks = [...projectTasks];
 
     if (currentFilter === 'pending') {
@@ -1330,20 +1333,21 @@ function completeAllTasks() {
 }
 
 function clearCompletedTasks() {
-    const completed = tasks.filter(t => t.projectId === currentProjectId && t.completed);
+    const completed = tasks.filter(t => t.projectId === currentProjectId && t.completed && !t.archived);
     if (completed.length === 0) {
         showToast('No completed tasks to clear.', 'info');
         return;
     }
-    if (confirm(`Remove ${completed.length} completed task(s)?`)) {
-        if (dbEnabled) {
-            completed.forEach(t => dbDeleteTask(t.id));
-        }
-        tasks = tasks.filter(t => !(t.projectId === currentProjectId && t.completed));
+    if (confirm(`Clear ${completed.length} completed task(s)? They'll be kept in history for the AI.`)) {
+        tasks = tasks.map(t =>
+            (t.projectId === currentProjectId && t.completed && !t.archived)
+                ? { ...t, archived: true }
+                : t
+        );
         saveAll();
         renderTasks();
         renderSidebar();
-        showToast(`${completed.length} task(s) removed.`, 'warning');
+        showToast(`${completed.length} task(s) cleared.`, 'success');
     }
 }
 
@@ -2553,16 +2557,18 @@ function initAI() {
 
         // Summarise data for context
         const activeProjects = projects.filter(p => !p.archived);
+        const cutoff = new Date();
+        cutoff.setDate(cutoff.getDate() - 14);
         const projectContext = activeProjects.map(p => {
-            const ptasks = tasks.filter(t => t.projectId === p.id);
-            const pending   = ptasks.filter(t => !t.completed);
-            const completed = ptasks.filter(t => t.completed);
+            const ptasks    = tasks.filter(t => t.projectId === p.id);
+            const pending   = ptasks.filter(t => !t.completed && !t.archived);
             const overdue   = pending.filter(t => t.dueDate && new Date(t.dueDate + 'T00:00:00') < new Date());
             const highPrio  = pending.filter(t => t.priority === 'high');
+            const recentDone = ptasks.filter(t => t.archived && t.completedAt && new Date(t.completedAt) > cutoff);
             return {
                 id:   p.id,
                 name: p.name,
-                pending:   pending.map(t => ({
+                pending: pending.map(t => ({
                     id:           t.id,
                     text:         t.text,
                     priority:     t.priority || null,
@@ -2571,9 +2577,13 @@ function initAI() {
                     notes:        t.notes || null,
                     recurringDay: t.recurringDay || null
                 })),
-                completedCount: completed.length,
-                overdueCount:   overdue.length,
-                highPrioCount:  highPrio.length
+                recentlyCompleted: recentDone.map(t => ({
+                    text:        t.text,
+                    completedAt: t.completedAt ? t.completedAt.split('T')[0] : null,
+                    timeSpent:   t.timeSpent ? `${Math.round(t.timeSpent/60)}m` : null
+                })),
+                overdueCount:  overdue.length,
+                highPrioCount: highPrio.length
             };
         });
 

@@ -54,6 +54,9 @@ ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS automatable   BOOLEAN     D
 ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS ai_skill      BOOLEAN     DEFAULT FALSE;
 ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS context       TEXT        DEFAULT NULL;
 
--- Recurring tasks (run these in Supabase SQL Editor)
+-- Recurring tasks
 ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS recurring     BOOLEAN     DEFAULT FALSE;
 ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS recurring_day TEXT        DEFAULT NULL;
+
+-- Soft delete for completed tasks (run in Supabase SQL Editor)
+ALTER TABLE public.tasks    ADD COLUMN IF NOT EXISTS archived      BOOLEAN     DEFAULT FALSE;
