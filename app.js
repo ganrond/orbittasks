@@ -236,6 +236,11 @@ async function init() {
                     if (!local) return t;
                     return {
                         ...t,
+                        // Prefer local for completed: localStorage is updated synchronously
+                        // while Supabase is async — if the page was refreshed mid-save,
+                        // Supabase may still have the old value.
+                        completed:    local.completed    ?? t.completed    ?? false,
+                        completedAt:  local.completed !== undefined ? local.completedAt : t.completedAt,
                         dueDate:      t.dueDate      || local.dueDate      || null,
                         priority:     t.priority     || local.priority     || null,
                         notes:        t.notes        || local.notes        || '',
@@ -699,7 +704,7 @@ function renderSidebar() {
     const archivedProjects = projects.filter(p => p.archived);
 
     activeProjects.sort((a, b) => (a.order ?? 0) - (b.order ?? 0)).forEach(p => {
-        const projTasks = tasks.filter(t => t.projectId === p.id);
+        const projTasks = tasks.filter(t => t.projectId === p.id && !t.archived);
         const total = projTasks.length;
         const done  = projTasks.filter(t => t.completed).length;
         const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -1391,7 +1396,7 @@ function handleCreateProject(e) {
     if (!name) return;
 
     const newProjectId = generateId();
-    projects.push({ id: newProjectId, name, order: projects.filter(p => !p.archived).length });
+    projects.push({ id: newProjectId, name, archived: false, order: projects.filter(p => !p.archived).length });
 
     saveAll();
     closeAllModals();
@@ -1586,6 +1591,9 @@ function addTask(e) {
     // Reset energy picker
     document.querySelectorAll('.energy-btn').forEach(b => b.classList.remove('active'));
     selectedEnergy = '';
+    // Reset priority picker
+    document.querySelectorAll('.prio-btn').forEach(b => b.classList.remove('active'));
+    selectedPriority = '';
 
     if (currentFilter === 'completed') {
         document.querySelector('[data-filter="all"]').click();
@@ -1615,6 +1623,12 @@ function toggleTask(id) {
         return task;
     });
     saveAll();
+    // Targeted single-task update so Supabase gets the new completed state
+    // immediately, without waiting for the bulk dbSaveTasks to finish.
+    if (dbEnabled) {
+        const updated = tasks.find(t => t.id === id);
+        if (updated) dbUpdateTask(updated);
+    }
     renderTasks();
     renderSidebar();
 }
@@ -2569,13 +2583,17 @@ function handleVoiceCommand(command) {
     }
 
     if (command === 'clear completed' || command === 'clear completed tasks') {
-        const completed = tasks.filter(t => t.projectId === currentProjectId && t.completed);
-        if (dbEnabled) completed.forEach(t => dbDeleteTask(t.id));
-        tasks = tasks.filter(t => t.projectId !== currentProjectId || !t.completed);
+        const completed = tasks.filter(t => t.projectId === currentProjectId && t.completed && !t.archived);
+        if (completed.length === 0) { showToast('No completed tasks to clear.', 'info'); return; }
+        tasks = tasks.map(t =>
+            (t.projectId === currentProjectId && t.completed && !t.archived)
+                ? { ...t, archived: true }
+                : t
+        );
         saveAll();
         renderTasks();
         renderSidebar();
-        showToast('Completed tasks removed.', 'warning');
+        showToast(`${completed.length} task(s) cleared.`, 'success');
         return;
     }
 
@@ -3022,11 +3040,10 @@ Rules:
             .replace(/\*(.+?)\*/g, '<em>$1</em>')
             // inline code
             .replace(/`([^`]+)`/g, '<code>$1</code>')
-            // unordered lists
+            // unordered and numbered list items → group consecutive <li> into one <ul>
             .replace(/^[\-\*] (.+)$/gm, '<li>$1</li>')
-            .replace(/(<li>[\s\S]*?<\/li>)/g, '<ul>$1</ul>')
-            // numbered lists
             .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
+            .replace(/(<li>.*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`)
             // line breaks → paragraphs
             .split(/\n{2,}/)
             .map(p => p.trim() ? (p.startsWith('<') ? p : `<p>${p.replace(/\n/g, '<br>')}</p>`) : '')

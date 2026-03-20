@@ -112,6 +112,18 @@ async function dbSaveTemplates(templatesArr) {
     } catch (e) { console.warn('[DB] dbSaveTemplates:', e); }
 }
 
+// Atualiza apenas o status de conclusão de uma tarefa (mais rápido que o upsert em massa)
+async function dbUpdateTask(task) {
+    if (!_supabase) return;
+    try {
+        const { error } = await _supabase.from('tasks').update({
+            completed:    task.completed,
+            completed_at: task.completedAt || null,
+        }).eq('id', task.id);
+        if (error) console.warn('[DB] Erro ao atualizar tarefa:', error);
+    } catch (e) { console.warn('[DB] dbUpdateTask:', e); }
+}
+
 // Remove uma tarefa do banco
 async function dbDeleteTask(id) {
     if (!_supabase) return;
