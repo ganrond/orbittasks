@@ -3705,10 +3705,11 @@ Structure your response:
         if (streaming) return;
         openPanel();
         setTimeout(() => sendMessage(
-            `Look at ALL my pending tasks across every project. For each task, do two things:\n\n` +
+            `Look at ALL my pending tasks across every project. For each task, do three things:\n\n` +
             `1. Set the right **priority**: "high" (urgent or high-impact), "medium" (important but not urgent), or "low" (nice to have someday)\n` +
-            `2. Classify it as **"quick-win"** (can be done in ~30 min or less, low effort) or **"deep-work"** (requires focus, concentration, or significant time)\n\n` +
-            `First give me a short summary of your reasoning — what drove your priority decisions and how you split quick wins vs deep work.\n` +
+            `2. Classify it as **"quick-win"** (can be done in ~30 min or less, low effort) or **"deep-work"** (requires focus, concentration, or significant time)\n` +
+            `3. If the task has NO due date, assign a realistic one based on its priority, complexity, and the overall workload — spread them out, don't pile everything on the same day. Never touch tasks that already have a due date.\n\n` +
+            `First give me a short summary of your reasoning — what drove your priority decisions, how you split quick wins vs deep work, and which tasks you gave due dates to and why.\n` +
             `Then apply ALL the changes at once using ORBIT_UPDATES.`
         ), 200);
     });
