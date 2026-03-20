@@ -77,7 +77,9 @@ async function dbSaveProjects(projectsArr) {
 // Salva/atualiza tarefas no banco
 async function dbSaveTasks(tasksArr) {
     if (!_supabase || !tasksArr.length) return;
-    const toRows = (arr, includeContext) => arr.map(t => ({
+
+    // Core columns — guaranteed to exist in the original schema
+    const coreRows = arr => arr.map(t => ({
         id:           t.id,
         project_id:   t.projectId,
         text:         t.text,
@@ -89,21 +91,27 @@ async function dbSaveTasks(tasksArr) {
         completed_at: t.completedAt ?? null,
         task_order:   t.order      ?? 0,
         created_at:   t.createdAt  || new Date().toISOString(),
-        ...(includeContext ? { context: t.context ?? null } : {}),
-        automatable:   t.automatable ?? false,
-        ai_skill:      t.aiSkill    ?? false,
-        recurring:     t.recurring  ?? false,
-        recurring_day: t.recurringDay ?? null,
-        archived:      t.archived   ?? false,
-        energy:        t.energy     ?? null
     }));
+
+    // Extended columns — added later, may not exist in all deployments
+    const fullRows = arr => coreRows(arr).map((row, i) => ({
+        ...row,
+        context:       tasksArr[i].context      ?? null,
+        automatable:   tasksArr[i].automatable  ?? false,
+        ai_skill:      tasksArr[i].aiSkill      ?? false,
+        recurring:     tasksArr[i].recurring    ?? false,
+        recurring_day: tasksArr[i].recurringDay ?? null,
+        archived:      tasksArr[i].archived     ?? false,
+        energy:        tasksArr[i].energy       ?? null,
+    }));
+
     try {
-        const { error } = await _supabase.from('tasks').upsert(toRows(tasksArr, true));
+        const { error } = await _supabase.from('tasks').upsert(fullRows(tasksArr));
         if (error) {
-            // Retry without context column in case it hasn't been added to the schema yet
-            console.warn('[DB] Retrying without context column:', error.message);
-            const { error: err2 } = await _supabase.from('tasks').upsert(toRows(tasksArr, false));
-            if (err2) console.warn('[DB] Erro ao salvar tarefas:', err2);
+            // Full upsert failed — fall back to core columns only
+            console.warn('[DB] Full upsert failed, falling back to core columns:', error.message);
+            const { error: err2 } = await _supabase.from('tasks').upsert(coreRows(tasksArr));
+            if (err2) console.warn('[DB] Erro ao salvar tarefas (core):', err2);
         }
     } catch (e) { console.warn('[DB] dbSaveTasks:', e); }
 }
