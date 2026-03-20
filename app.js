@@ -240,6 +240,10 @@ async function init() {
                 currentProjectId = projects.find(p => p.id === currentProjectId)
                     ? currentProjectId
                     : projects[0].id;
+                // Mirror Supabase data to localStorage so offline reloads stay fresh
+                localStorage.setItem('orbitTasks',    JSON.stringify(tasks));
+                localStorage.setItem('orbitProjects', JSON.stringify(projects));
+                localStorage.setItem('orbitTemplates', JSON.stringify(templates));
                 console.log('[App] Dados carregados do Supabase.');
             } else {
                 console.log('[App] Supabase vazio. Migrando dados locais para a nuvem...');
@@ -256,7 +260,6 @@ async function init() {
             const cloudPrompt = await dbLoadSetting('masterPrompt');
             if (cloudPrompt) {
                 localStorage.setItem('orbitMasterPrompt', cloudPrompt);
-                // Restore file metadata if missing
                 if (!localStorage.getItem('orbitMasterPromptFile')) {
                     localStorage.setItem('orbitMasterPromptFile', JSON.stringify({
                         name: 'synced from cloud',
@@ -267,6 +270,46 @@ async function init() {
             }
         } catch (e) {
             console.warn('[App] Erro ao carregar MasterPrompt:', e);
+        }
+
+        // Sync user settings: theme, pomodoro, check-in log, weekly task list
+        try {
+            const [cloudTheme, cloudPomodoro, cloudCheckIn, cloudWeekly] = await Promise.all([
+                dbLoadSetting('theme'),
+                dbLoadSetting('pomodoroDuration'),
+                dbLoadSetting('checkInLog'),
+                dbLoadSetting('weeklyTaskIds')
+            ]);
+            if (cloudTheme) {
+                currentTheme = cloudTheme;
+                localStorage.setItem('orbitTheme', cloudTheme);
+                applyTheme(cloudTheme);
+            }
+            if (cloudPomodoro) {
+                pomodoroDuration = parseInt(cloudPomodoro, 10) || 1500;
+                timeRemaining = pomodoroDuration;
+                localStorage.setItem('orbitPomodoroDuration', pomodoroDuration.toString());
+            }
+            if (cloudCheckIn) {
+                try {
+                    const parsed = JSON.parse(cloudCheckIn);
+                    if (Array.isArray(parsed)) {
+                        checkInLog = parsed;
+                        localStorage.setItem('orbitCheckInLog', JSON.stringify(checkInLog));
+                    }
+                } catch(e) {}
+            }
+            if (cloudWeekly) {
+                try {
+                    const parsed = JSON.parse(cloudWeekly);
+                    if (Array.isArray(parsed)) {
+                        weeklyTaskIds = parsed;
+                        localStorage.setItem('orbitWeeklyTaskIds', JSON.stringify(weeklyTaskIds));
+                    }
+                } catch(e) {}
+            }
+        } catch(e) {
+            console.warn('[App] Erro ao carregar settings:', e);
         }
     }
 
@@ -474,6 +517,7 @@ function initDurationPicker() {
             btn.classList.add('active');
             pomodoroDuration = mins * 60;
             localStorage.setItem('orbitPomodoroDuration', pomodoroDuration.toString());
+            if (dbEnabled) dbSaveSetting('pomodoroDuration', pomodoroDuration.toString());
             // If timer is not running, reset display
             if (!activeTimerTaskId) {
                 timeRemaining = pomodoroDuration;
@@ -1941,6 +1985,7 @@ function submitCheckIn(skipped = false) {
     // Keep last 30 days
     if (checkInLog.length > 30) checkInLog = checkInLog.slice(-30);
     localStorage.setItem('orbitCheckInLog', JSON.stringify(checkInLog));
+    if (dbEnabled) dbSaveSetting('checkInLog', JSON.stringify(checkInLog));
 
     hideCheckIn();
 
@@ -2025,6 +2070,7 @@ function initCheckIn() {
 
 function saveWeeklyList() {
     localStorage.setItem('orbitWeeklyTaskIds', JSON.stringify(weeklyTaskIds));
+    if (dbEnabled) dbSaveSetting('weeklyTaskIds', JSON.stringify(weeklyTaskIds));
 }
 
 function formatHoursFromSeconds(secs) {
@@ -2689,6 +2735,7 @@ function initThemePicker() {
             e.stopPropagation();
             const theme = btn.dataset.theme;
             applyTheme(theme);
+            if (dbEnabled) dbSaveSetting('theme', theme);
             themeDropdown.classList.add('hidden');
         });
     });
