@@ -77,29 +77,34 @@ async function dbSaveProjects(projectsArr) {
 // Salva/atualiza tarefas no banco
 async function dbSaveTasks(tasksArr) {
     if (!_supabase || !tasksArr.length) return;
+    const toRows = (arr, includeContext) => arr.map(t => ({
+        id:           t.id,
+        project_id:   t.projectId,
+        text:         t.text,
+        completed:    t.completed,
+        time_spent:   t.timeSpent  ?? 0,
+        priority:     t.priority   ?? null,
+        due_date:     t.dueDate    ?? null,
+        notes:        t.notes      ?? '',
+        completed_at: t.completedAt ?? null,
+        task_order:   t.order      ?? 0,
+        created_at:   t.createdAt  || new Date().toISOString(),
+        ...(includeContext ? { context: t.context ?? null } : {}),
+        automatable:   t.automatable ?? false,
+        ai_skill:      t.aiSkill    ?? false,
+        recurring:     t.recurring  ?? false,
+        recurring_day: t.recurringDay ?? null,
+        archived:      t.archived   ?? false,
+        energy:        t.energy     ?? null
+    }));
     try {
-        const rows = tasksArr.map(t => ({
-            id:           t.id,
-            project_id:   t.projectId,
-            text:         t.text,
-            completed:    t.completed,
-            time_spent:   t.timeSpent  ?? 0,
-            priority:     t.priority   ?? null,
-            due_date:     t.dueDate    ?? null,
-            notes:        t.notes      ?? '',
-            completed_at: t.completedAt ?? null,
-            task_order:   t.order      ?? 0,
-            created_at:   t.createdAt  || new Date().toISOString(),
-            context:       t.context    ?? null,
-            automatable:   t.automatable ?? false,
-            ai_skill:      t.aiSkill    ?? false,
-            recurring:     t.recurring  ?? false,
-            recurring_day: t.recurringDay ?? null,
-            archived:      t.archived   ?? false,
-            energy:        t.energy     ?? null
-        }));
-        const { error } = await _supabase.from('tasks').upsert(rows);
-        if (error) console.warn('[DB] Erro ao salvar tarefas:', error);
+        const { error } = await _supabase.from('tasks').upsert(toRows(tasksArr, true));
+        if (error) {
+            // Retry without context column in case it hasn't been added to the schema yet
+            console.warn('[DB] Retrying without context column:', error.message);
+            const { error: err2 } = await _supabase.from('tasks').upsert(toRows(tasksArr, false));
+            if (err2) console.warn('[DB] Erro ao salvar tarefas:', err2);
+        }
     } catch (e) { console.warn('[DB] dbSaveTasks:', e); }
 }
 
