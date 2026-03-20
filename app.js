@@ -236,11 +236,10 @@ async function init() {
                     if (!local) return t;
                     return {
                         ...t,
-                        // Prefer local for completed: localStorage is updated synchronously
-                        // while Supabase is async — if the page was refreshed mid-save,
-                        // Supabase may still have the old value.
-                        completed:    local.completed    ?? t.completed    ?? false,
-                        completedAt:  local.completed !== undefined ? local.completedAt : t.completedAt,
+                        // Prefer Supabase for completed: it is the cross-device source of truth.
+                        // Fall back to local only when Supabase has no value (schema gap).
+                        completed:    t.completed    ?? local.completed    ?? false,
+                        completedAt:  t.completedAt  ?? local.completedAt  ?? null,
                         dueDate:      t.dueDate      || local.dueDate      || null,
                         priority:     t.priority     || local.priority     || null,
                         notes:        t.notes        || local.notes        || '',
@@ -2761,6 +2760,16 @@ function initAI() {
 
     // ---- State ----
     let chatHistory = [];
+    try {
+        const saved = JSON.parse(localStorage.getItem('orbitChatHistory') || '[]');
+        if (Array.isArray(saved) && saved.length > 0) chatHistory = saved;
+    } catch(e) {}
+
+    function saveChatHistory() {
+        localStorage.setItem('orbitChatHistory', JSON.stringify(chatHistory));
+        if (dbEnabled) dbSaveSetting('chatHistory', JSON.stringify(chatHistory));
+    }
+
     let streaming   = false;
 
     // ---- Open / Close ----
@@ -2917,6 +2926,8 @@ function initAI() {
         chatHistory = [];
         messagesEl.innerHTML = '';
         messagesEl.appendChild(buildWelcomeEl());
+        localStorage.removeItem('orbitChatHistory');
+        if (dbEnabled) dbDeleteSetting('chatHistory');
         showToast('New conversation started.', 'info');
     });
 
@@ -3114,6 +3125,7 @@ Rules:
         // Show user bubble
         appendBubble('user', text);
         chatHistory.push({ role: 'user', content: text });
+        saveChatHistory();
 
         // Show assistant bubble with cursor
         const welcome = document.getElementById('ai-welcome');
@@ -3195,6 +3207,7 @@ Rules:
                     bubble.innerHTML = renderMarkdown(fullText);
                 }
                 chatHistory.push({ role: 'assistant', content: fullText });
+                saveChatHistory();
             }
 
         } catch (err) {
@@ -3680,4 +3693,35 @@ Structure your response:
         inputEl.style.height = 'auto';
         inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + 'px';
     });
+
+    // ---- Restore chat history ----
+    function renderChatHistory(history) {
+        messagesEl.innerHTML = '';
+        history.forEach(m => {
+            // Strip ORBIT_UPDATES block from display (keep it in chatHistory for AI context)
+            const displayText = m.role === 'assistant'
+                ? m.content.replace(/<!--ORBIT_UPDATES[\s\S]*?ORBIT_UPDATES-->/, '').trim()
+                : m.content;
+            appendBubble(m.role, displayText);
+        });
+    }
+
+    if (chatHistory.length > 0) {
+        renderChatHistory(chatHistory);
+    }
+
+    // Sync from Supabase: if cloud has more messages, it's the most up-to-date version
+    if (dbEnabled) {
+        (async () => {
+            try {
+                const cloudStr = await dbLoadSetting('chatHistory');
+                if (!cloudStr) return;
+                const cloud = JSON.parse(cloudStr);
+                if (!Array.isArray(cloud) || cloud.length <= chatHistory.length) return;
+                chatHistory = cloud;
+                localStorage.setItem('orbitChatHistory', JSON.stringify(chatHistory));
+                renderChatHistory(chatHistory);
+            } catch(e) {}
+        })();
+    }
 }
