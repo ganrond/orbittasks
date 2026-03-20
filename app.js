@@ -1052,7 +1052,7 @@ function createTaskElement(task) {
     // Notes indicator
     let notesIcon = '';
     if (task.notes && task.notes.trim()) {
-        notesIcon = `<i class="fa-solid fa-note-sticky notes-indicator" title="Tem notas"></i>`;
+        notesIcon = `<i class="fa-solid fa-note-sticky notes-indicator" title="Has notes"></i>`;
     }
 
     // Recurring badge + streak
@@ -1149,6 +1149,23 @@ function createTaskElement(task) {
         <div class="task-extra hidden">
             <div class="task-extra-fields">
                 <div class="task-extra-field">
+                    <label class="extra-label"><i class="fa-solid fa-flag"></i> Priority</label>
+                    <div class="composer-group task-prio-picker">
+                        <button type="button" class="prio-btn task-prio-btn ${!task.priority ? 'active' : ''}" data-prio="">—</button>
+                        <button type="button" class="prio-btn prio-high task-prio-btn ${task.priority === 'high' ? 'active' : ''}" data-prio="high">High</button>
+                        <button type="button" class="prio-btn prio-medium task-prio-btn ${task.priority === 'medium' ? 'active' : ''}" data-prio="medium">Med</button>
+                        <button type="button" class="prio-btn prio-low task-prio-btn ${task.priority === 'low' ? 'active' : ''}" data-prio="low">Low</button>
+                    </div>
+                </div>
+                <div class="task-extra-field">
+                    <label class="extra-label"><i class="fa-solid fa-tag"></i> Context</label>
+                    <div class="composer-group task-ctx-picker">
+                        <button type="button" class="context-btn task-ctx-btn ${!task.context ? 'active' : ''}" data-context=""><i class="fa-solid fa-minus"></i></button>
+                        <button type="button" class="context-btn context-btn-deep task-ctx-btn ${task.context === 'deep-work' ? 'active' : ''}" data-context="deep-work"><i class="fa-solid fa-brain"></i> Deep</button>
+                        <button type="button" class="context-btn context-btn-quick task-ctx-btn ${task.context === 'quick-win' ? 'active' : ''}" data-context="quick-win"><i class="fa-solid fa-bolt"></i> Quick</button>
+                    </div>
+                </div>
+                <div class="task-extra-field">
                     <label class="extra-label"><i class="fa-regular fa-calendar"></i> Due Date</label>
                     <input type="date" class="task-due-input extra-input" value="${task.dueDate || ''}">
                 </div>
@@ -1224,6 +1241,24 @@ function createTaskElement(task) {
     // Edit button
     const editBtn = li.querySelector('.edit-btn');
     editBtn.addEventListener('click', () => editTask(task.id, li, task.text));
+
+    // Task-level priority picker
+    li.querySelectorAll('.task-prio-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            li.querySelectorAll('.task-prio-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateTaskField(task.id, 'priority', btn.dataset.prio || null);
+        });
+    });
+
+    // Task-level context picker
+    li.querySelectorAll('.task-ctx-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            li.querySelectorAll('.task-ctx-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateTaskField(task.id, 'context', btn.dataset.context || null);
+        });
+    });
 
     // Due date input
     const dueInput = li.querySelector('.task-due-input');
@@ -1456,19 +1491,24 @@ function cloneProject(sourceId) {
     // Clone tasks: keep text, priority, notes — reset progress
     const sourceTasks = tasks.filter(t => t.projectId === sourceId);
     const clonedTasks = sourceTasks.map((t, i) => ({
-        id:          generateId(),
-        projectId:   newProjectId,
-        text:        t.text,
-        completed:   false,
-        timeSpent:   0,
-        priority:    t.priority || null,
-        dueDate:     null,
-        notes:       t.notes || '',
-        completedAt: null,
-        order:       t.order ?? i,
-        createdAt:   new Date().toISOString(),
-        automatable: t.automatable || false,
-        aiSkill:     t.aiSkill     || false
+        id:           generateId(),
+        projectId:    newProjectId,
+        text:         t.text,
+        completed:    false,
+        timeSpent:    0,
+        priority:     t.priority    || null,
+        dueDate:      null,
+        context:      t.context     || null,
+        energy:       t.energy      || null,
+        notes:        t.notes       || '',
+        completedAt:  null,
+        order:        t.order ?? i,
+        createdAt:    new Date().toISOString(),
+        recurring:    t.recurring    || false,
+        recurringDay: t.recurringDay || null,
+        archived:     false,
+        automatable:  t.automatable  || false,
+        aiSkill:      t.aiSkill      || false
     }));
     tasks.push(...clonedTasks);
 
@@ -1593,6 +1633,8 @@ function addTask(e) {
     selectedEnergy = '';
     // Reset priority picker
     document.querySelectorAll('.prio-btn').forEach(b => b.classList.remove('active'));
+    const noPrioBtn = document.querySelector('.prio-btn[data-prio=""]');
+    if (noPrioBtn) noPrioBtn.classList.add('active');
     selectedPriority = '';
 
     if (currentFilter === 'completed') {
@@ -1820,7 +1862,7 @@ function exportData() {
     a.click();
     URL.revokeObjectURL(url);
 
-    showToast('Dados exportados com sucesso!', 'success');
+    showToast('Data exported successfully!', 'success');
 }
 
 // --- View switching — one function hides everything, then shows target ---
@@ -2104,10 +2146,10 @@ function renderWeeklyFocusList() {
     if (!listEl) return;
     listEl.innerHTML = '';
 
-    // Filter out ids of tasks that no longer exist or are completed
+    // Filter out ids of tasks that no longer exist, are completed, or archived
     weeklyTaskIds = weeklyTaskIds.filter(id => {
         const t = tasks.find(t2 => t2.id === id);
-        return t && !t.completed;
+        return t && !t.completed && !t.archived;
     });
     saveWeeklyList();
 
@@ -2614,10 +2656,15 @@ function createTaskFromVoice(text, projId = currentProjectId) {
         timeSpent:   0,
         priority:    null,
         dueDate:     null,
+        context:     null,
+        energy:      null,
         notes:       '',
         completedAt: null,
         order:       minOrder - 1,
-        createdAt:   new Date().toISOString()
+        createdAt:   new Date().toISOString(),
+        recurring:    false,
+        recurringDay: null,
+        archived:     false
     };
     tasks.unshift(newTask);
     saveAll();
@@ -2912,7 +2959,8 @@ function initAI() {
                     timeSpent:    t.timeSpent ? `${Math.round(t.timeSpent/60)}m` : null,
                     notes:        t.notes || null,
                     recurringDay: t.recurringDay || null,
-                    energy:       t.energy || null
+                    energy:       t.energy || null,
+                    context:      t.context || null
                 })),
                 recentlyCompleted: recentDone.map(t => ({
                     text:        t.text,
@@ -2948,8 +2996,8 @@ You can create, update, complete, and delete tasks directly. When you do, ALWAYS
 
 Each item in the array must have an "action" field. Supported actions:
 
-**"update"** — change priority, due date, or text of an existing task:
-{"action":"update","id":"task-id","priority":"high","dueDate":"2026-03-25"}
+**"update"** — change priority, due date, context, or text of an existing task:
+{"action":"update","id":"task-id","priority":"high","dueDate":"2026-03-25","context":"quick-win"}
 
 **"create"** — add a new task (use the project id from the workspace context above):
 {"action":"create","projectId":"project-id","text":"Task name","priority":"medium","dueDate":"2026-03-25"}
@@ -2962,6 +3010,7 @@ Each item in the array must have an "action" field. Supported actions:
 
 Rules:
 - Valid priorities: "high", "medium", "low", null
+- Valid contexts: "quick-win", "deep-work", null
 - Date format: YYYY-MM-DD, or null to clear
 - Omit optional fields if not setting them
 - Use this for ANY task management request: adding, removing, rescheduling, completing tasks
@@ -3205,6 +3254,7 @@ Rules:
         saveAll();
         renderTasks();
         renderSidebar();
+        updateWorkloadMeter();
     }
 
     function showApplyCard(msgWrapper, updates) {
@@ -3234,6 +3284,7 @@ Rules:
             if (u.priority !== undefined) parts.push(`priority → <strong>${prioLabel[u.priority] || 'None'}</strong>`);
             if (u.dueDate  !== undefined) parts.push(`due → <strong>${u.dueDate || 'cleared'}</strong>`);
             if (u.text     !== undefined) parts.push(`renamed → <strong>${escapeHTML(u.text)}</strong>`);
+            if (u.context  !== undefined) parts.push(`context → <strong>${u.context === 'quick-win' ? '⚡ Quick Win' : u.context === 'deep-work' ? '🧠 Deep Work' : 'None'}</strong>`);
             return `<li>${escapeHTML(task.text)}<span class="ai-apply-change">${parts.join(' · ')}</span></li>`;
         }).join('');
 
@@ -3595,6 +3646,20 @@ Structure your response:
         openPanel();
         setTimeout(() => sendMessage(prompt), 400);
     };
+
+    // Wire reorganize button
+    const reorganizeBtn = document.getElementById('ai-reorganize-btn');
+    if (reorganizeBtn) reorganizeBtn.addEventListener('click', () => {
+        if (streaming) return;
+        openPanel();
+        setTimeout(() => sendMessage(
+            `Look at ALL my pending tasks across every project. For each task, do two things:\n\n` +
+            `1. Set the right **priority**: "high" (urgent or high-impact), "medium" (important but not urgent), or "low" (nice to have someday)\n` +
+            `2. Classify it as **"quick-win"** (can be done in ~30 min or less, low effort) or **"deep-work"** (requires focus, concentration, or significant time)\n\n` +
+            `First give me a short summary of your reasoning — what drove your priority decisions and how you split quick wins vs deep work.\n` +
+            `Then apply ALL the changes at once using ORBIT_UPDATES.`
+        ), 200);
+    });
 
     // Wire scan button
     const scanBtn = document.getElementById('ai-scan-btn');
