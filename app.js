@@ -199,12 +199,6 @@ async function init() {
 
     // Se Supabase estiver configurado, carrega dados da nuvem
     if (dbEnabled) {
-        // Keep a snapshot of local tasks so we can rescue any that failed to sync
-        let localTasksSnapshot = [];
-        try {
-            localTasksSnapshot = JSON.parse(localStorage.getItem('orbitTasks') || '[]');
-        } catch(e) {}
-
         try {
             const dbData = await dbLoadAll();
 
@@ -227,16 +221,6 @@ async function init() {
                     energy:       null,
                     ...t
                 }));
-                // Rescue tasks that are in localStorage but missing from Supabase —
-                // these are tasks whose save to Supabase failed. Add them back and
-                // retry syncing so they aren't silently lost on refresh.
-                const dbIds = new Set(tasks.map(t => t.id));
-                const unsynced = localTasksSnapshot.filter(t => !dbIds.has(t.id));
-                if (unsynced.length > 0) {
-                    console.warn(`[App] Rescuing ${unsynced.length} unsynced task(s) from localStorage.`);
-                    tasks = [...unsynced, ...tasks];
-                    dbSaveTasks(unsynced);
-                }
                 currentProjectId = projects.find(p => p.id === currentProjectId)
                     ? currentProjectId
                     : projects[0].id;
