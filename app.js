@@ -41,6 +41,7 @@ tasks    = tasks.map((t, i) => ({
     recurringDay: null,
     archived:     false,
     energy:       null,
+    subtasks:     [],
     ...t,
     projectId: t.projectId || projects[0]?.id
 }));
@@ -219,6 +220,7 @@ async function init() {
                     recurringDay: null,
                     archived:     false,
                     energy:       null,
+                    subtasks:     [],
                     ...t
                 }));
                 currentProjectId = projects.find(p => p.id === currentProjectId)
@@ -1069,6 +1071,14 @@ function createTaskElement(task) {
         notesIcon = `<i class="fa-solid fa-note-sticky notes-indicator" title="Has notes"></i>`;
     }
 
+    // Subtask progress badge
+    let subtaskBadge = '';
+    if (task.subtasks && task.subtasks.length > 0) {
+        const done  = task.subtasks.filter(s => s.completed).length;
+        const total = task.subtasks.length;
+        subtaskBadge = `<span class="subtask-progress-badge" title="${done} of ${total} subtasks done"><i class="fa-solid fa-list-check"></i> ${done}/${total}</span>`;
+    }
+
     // Recurring badge + streak
     let recurringBadge = '';
     if (task.recurring) {
@@ -1135,6 +1145,7 @@ function createTaskElement(task) {
                         ${prioDot}
                         <span class="task-text">${escapeHTML(task.text)}</span>
                         ${notesIcon}
+                        ${subtaskBadge}
                         ${autoBadge}
                         ${skillBadge}
                     </div>
@@ -1204,6 +1215,21 @@ function createTaskElement(task) {
                 <div class="task-extra-field">
                     <label class="extra-label"><i class="fa-regular fa-note-sticky"></i> Notes</label>
                     <textarea class="task-notes-input extra-input" placeholder="Add notes...">${escapeHTML(task.notes || '')}</textarea>
+                </div>
+                <div class="task-extra-field subtasks-field">
+                    <label class="extra-label"><i class="fa-solid fa-list-check"></i> Subtasks</label>
+                    <div class="subtasks-list">
+                        ${(task.subtasks || []).map(s => `
+                        <div class="subtask-item" data-subtask-id="${s.id}">
+                            <input type="checkbox" class="subtask-check" ${s.completed ? 'checked' : ''}>
+                            <span class="subtask-text${s.completed ? ' done' : ''}">${escapeHTML(s.text)}</span>
+                            <button class="subtask-delete-btn" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+                        </div>`).join('')}
+                    </div>
+                    <div class="subtask-add-row">
+                        <input class="subtask-add-input" placeholder="Add a subtask…">
+                        <button class="subtask-add-btn"><i class="fa-solid fa-plus"></i></button>
+                    </div>
                 </div>
             </div>
             ${!task.completed ? `<div class="task-ai-bar"><button class="task-ai-btn breakdown-btn"><i class="fa-solid fa-scissors"></i> Break into subtasks with AI</button></div>` : ''}
@@ -1313,6 +1339,76 @@ function createTaskElement(task) {
             if (aiActions.breakdownTask) aiActions.breakdownTask(task);
         });
     }
+
+    // ---- Subtask helpers ----
+    function getTaskIdx() { return tasks.findIndex(t => t.id === task.id); }
+
+    function refreshSubtaskBadge() {
+        const subs  = tasks[getTaskIdx()]?.subtasks || [];
+        const total = subs.length;
+        const done  = subs.filter(s => s.completed).length;
+        let badge = li.querySelector('.subtask-progress-badge');
+        if (total === 0) { if (badge) badge.remove(); return; }
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.className = 'subtask-progress-badge';
+            li.querySelector('.task-header-row').appendChild(badge);
+        }
+        badge.title = `${done} of ${total} subtasks done`;
+        badge.innerHTML = `<i class="fa-solid fa-list-check"></i> ${done}/${total}`;
+    }
+
+    function wireSubtaskItem(itemEl, subId) {
+        itemEl.querySelector('.subtask-check').addEventListener('change', (e) => {
+            const idx = getTaskIdx(); if (idx === -1) return;
+            tasks[idx].subtasks = tasks[idx].subtasks.map(s =>
+                s.id === subId ? { ...s, completed: e.target.checked } : s
+            );
+            itemEl.querySelector('.subtask-text').classList.toggle('done', e.target.checked);
+            saveAll(); refreshSubtaskBadge();
+        });
+        itemEl.querySelector('.subtask-delete-btn').addEventListener('click', () => {
+            const idx = getTaskIdx(); if (idx === -1) return;
+            tasks[idx].subtasks = tasks[idx].subtasks.filter(s => s.id !== subId);
+            itemEl.remove();
+            saveAll(); refreshSubtaskBadge();
+        });
+    }
+
+    // Wire existing subtask items
+    li.querySelectorAll('.subtask-item').forEach(itemEl => {
+        wireSubtaskItem(itemEl, itemEl.dataset.subtaskId);
+    });
+
+    // Add new subtask
+    const subtasksList    = li.querySelector('.subtasks-list');
+    const subtaskAddInput = li.querySelector('.subtask-add-input');
+    const subtaskAddBtn   = li.querySelector('.subtask-add-btn');
+
+    function addSubtask() {
+        const text = (subtaskAddInput.value || '').trim();
+        if (!text) return;
+        const newSub = { id: generateId(), text, completed: false };
+        const idx = getTaskIdx(); if (idx === -1) return;
+        tasks[idx].subtasks = [...(tasks[idx].subtasks || []), newSub];
+
+        const itemEl = document.createElement('div');
+        itemEl.className = 'subtask-item';
+        itemEl.dataset.subtaskId = newSub.id;
+        itemEl.innerHTML = `
+            <input type="checkbox" class="subtask-check">
+            <span class="subtask-text">${escapeHTML(newSub.text)}</span>
+            <button class="subtask-delete-btn" title="Remove"><i class="fa-solid fa-xmark"></i></button>`;
+        wireSubtaskItem(itemEl, newSub.id);
+        subtasksList.appendChild(itemEl);
+        subtaskAddInput.value = '';
+        saveAll(); refreshSubtaskBadge();
+    }
+
+    subtaskAddBtn.addEventListener('click', addSubtask);
+    subtaskAddInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); addSubtask(); }
+    });
 
     // Drag and drop (custom sort only)
     if (isCustomSort) {
@@ -3025,8 +3121,8 @@ You can create, update, complete, and delete tasks directly. When you do, ALWAYS
 
 Each item in the array must have an "action" field. Supported actions:
 
-**"update"** — change priority, due date, context, or text of an existing task:
-{"action":"update","id":"task-id","priority":"high","dueDate":"2026-03-25","context":"quick-win"}
+**"update"** — change any fields of an existing task:
+{"action":"update","id":"task-id","priority":"high","dueDate":"2026-03-25","context":"quick-win","notes":"Step 1: ...\nStep 2: ..."}
 
 **"create"** — add a new task (use the project id from the workspace context above):
 {"action":"create","projectId":"project-id","text":"Task name","priority":"medium","dueDate":"2026-03-25"}
@@ -3045,6 +3141,15 @@ Rules:
 - Use this for ANY task management request: adding, removing, rescheduling, completing tasks
 - When creating tasks, always use the correct projectId from the workspace context
 - Do NOT invent task IDs — only reference IDs that appear in the workspace context above
+
+## Notes field — how to use it
+The \`notes\` field is a plain-text area visible inside each task. Use it to store rich context that makes the task actionable:
+- **Sub-steps**: numbered steps for the day or session (e.g. "1. Review Frame notes\n2. VFX pass\n3. Sound design")
+- **Time allocation**: how long each part should take (e.g. "Music discovery: 4h\nMusic placement: 1h")
+- **Process reminders**: anything the user needs to remember when they sit down to do it (e.g. "Upload VOs to Google Doc before 6pm")
+- **Dependencies or blockers**: what needs to happen first
+
+When a user asks you to plan a task, break it down, or add detail — write structured notes directly to that task using the update action. Use \\n for line breaks. Be specific and practical, not generic.
 
 ## Due dates — personal assistant rules
 You are a real personal assistant. Treat due dates like commitments.
@@ -3301,6 +3406,7 @@ You are a real personal assistant. Treat due dates like commitments.
                 }
                 if (u.text     !== undefined) tasks[idx] = { ...tasks[idx], text:     u.text     };
                 if (u.context  !== undefined) tasks[idx] = { ...tasks[idx], context:  u.context  };
+                if (u.notes    !== undefined) tasks[idx] = { ...tasks[idx], notes:    u.notes    };
             }
         });
         saveAll();
@@ -3337,6 +3443,7 @@ You are a real personal assistant. Treat due dates like commitments.
             if (u.dueDate  !== undefined) parts.push(`due → <strong>${u.dueDate || 'cleared'}</strong>`);
             if (u.text     !== undefined) parts.push(`renamed → <strong>${escapeHTML(u.text)}</strong>`);
             if (u.context  !== undefined) parts.push(`context → <strong>${u.context === 'quick-win' ? '⚡ Quick Win' : u.context === 'deep-work' ? '🧠 Deep Work' : 'None'}</strong>`);
+            if (u.notes    !== undefined) parts.push(`notes updated`);
             return `<li>${escapeHTML(task.text)}<span class="ai-apply-change">${parts.join(' · ')}</span></li>`;
         }).join('');
 
@@ -3604,33 +3711,22 @@ Structure your response:
             return;
         }
 
-        // Create subtasks in the task list
-        const projectTasks = tasks.filter(t => t.projectId === task.projectId);
-        const minOrder = projectTasks.length > 0 ? Math.min(...projectTasks.map(t => t.order ?? 0)) : 0;
-        const newSubtasks = subtasks.map((text, i) => ({
-            id:          generateId(),
-            projectId:   task.projectId,
-            text,
-            completed:   false,
-            timeSpent:   0,
-            priority:    null,
-            dueDate:     null,
-            notes:       '',
-            completedAt: null,
-            order:       minOrder - subtasks.length + i,
-            createdAt:   new Date().toISOString()
-        }));
-        tasks.unshift(...newSubtasks);
-        saveAll();
-        renderTasks();
-        renderSidebar();
+        // Store subtasks inline on the parent task
+        const taskIdx = tasks.findIndex(t => t.id === task.id);
+        if (taskIdx !== -1) {
+            tasks[taskIdx].subtasks = subtasks.map(text => ({
+                id: generateId(), text, completed: false
+            }));
+            saveAll();
+            renderTasks();
+        }
 
         scanWrapper.remove();
         const resultBubble = appendBubble('assistant', '');
         resultBubble.innerHTML =
             `<strong><i class="fa-solid fa-scissors"></i> Broke "${escapeHTML(task.text)}" into ${subtasks.length} subtasks:</strong><br><br>` +
             subtasks.map((s, i) => `${i + 1}. ${escapeHTML(s)}`).join('<br>') +
-            `<br><br><span style="opacity:0.6;font-size:0.85em">All subtasks were added to your task list.</span>`;
+            `<br><br><span style="opacity:0.6;font-size:0.85em">Subtasks saved inside the task — expand it to see them.</span>`;
     }
 
     // ---- Auto-suggest priority (silent background call) ----

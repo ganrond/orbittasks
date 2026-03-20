@@ -48,6 +48,7 @@ async function dbLoadAll() {
                 order:       t.task_order  ?? 0,
                 createdAt:   t.created_at,
                 context:      t.context      ?? null,
+                subtasks:     Array.isArray(t.subtasks) ? t.subtasks : [],
                 automatable:  t.automatable  ?? false,
                 aiSkill:      t.ai_skill     ?? false,
                 recurring:    t.recurring    ?? false,
@@ -97,6 +98,7 @@ async function dbSaveTasks(tasksArr) {
     const fullRows = arr => coreRows(arr).map((row, i) => ({
         ...row,
         context:       tasksArr[i].context      ?? null,
+        subtasks:      tasksArr[i].subtasks     ?? [],
         automatable:   tasksArr[i].automatable  ?? false,
         ai_skill:      tasksArr[i].aiSkill      ?? false,
         recurring:     tasksArr[i].recurring    ?? false,

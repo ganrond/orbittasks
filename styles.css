@@ -1333,6 +1333,23 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 }
 .task-ai-btn:hover { color: var(--accent-primary); border-color: var(--accent-primary); background: rgba(77,255,196,0.06); }
 
+/* === SUBTASKS === */
+.subtasks-field { min-width: 100% !important; }
+.subtasks-list { display: flex; flex-direction: column; gap: 0.35rem; margin-bottom: 0.4rem; min-height: 0; }
+.subtask-item { display: flex; align-items: center; gap: 0.5rem; }
+.subtask-check { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent-primary); flex-shrink: 0; }
+.subtask-text { font-size: 0.83rem; color: var(--text-main); flex: 1; line-height: 1.4; transition: var(--transition-fast); }
+.subtask-text.done { opacity: 0.4; text-decoration: line-through; }
+.subtask-delete-btn { background: none; border: none; color: var(--text-muted); cursor: pointer; padding: 0 0.15rem; font-size: 0.72rem; opacity: 0; transition: var(--transition-fast); flex-shrink: 0; line-height: 1; }
+.subtask-item:hover .subtask-delete-btn { opacity: 1; }
+.subtask-delete-btn:hover { color: #ff4466; }
+.subtask-add-row { display: flex; gap: 0.4rem; margin-top: 0.3rem; }
+.subtask-add-input { flex: 1; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-main); font-family: 'DM Sans', sans-serif; font-size: 0.83rem; padding: 0.3rem 0.55rem; transition: var(--transition-fast); }
+.subtask-add-input:focus { outline: none; border-color: var(--accent-primary); box-shadow: 0 0 0 2px rgba(77,255,196,0.08); }
+.subtask-add-btn { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: var(--radius-sm); padding: 0.3rem 0.65rem; cursor: pointer; font-size: 0.8rem; transition: var(--transition-fast); }
+.subtask-add-btn:hover { color: var(--accent-primary); border-color: var(--accent-primary); background: rgba(77,255,196,0.06); }
+.subtask-progress-badge { font-size: 0.68rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.25rem; background: var(--bg-elevated); border: 1px solid var(--border); border-radius: 20px; padding: 0.1rem 0.45rem; margin-left: 0.25rem; white-space: nowrap; }
+
 /* === DRAG AND DROP === */
 .drag-handle { color: var(--text-muted); font-size: 0.8rem; cursor: grab; padding: 0 0.4rem 0 0; flex-shrink: 0; opacity: 0; transition: var(--transition-fast); display: flex; align-items: center; }
 .task-item:hover .drag-handle { opacity: 1; }
