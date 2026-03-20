@@ -199,13 +199,6 @@ async function init() {
 
     // Se Supabase estiver configurado, carrega dados da nuvem
     if (dbEnabled) {
-        // Snapshot localStorage BEFORE Supabase load so we can rescue fields
-        // that may be missing from Supabase (e.g. columns not yet migrated).
-        let localTasksSnapshot = [];
-        try {
-            localTasksSnapshot = JSON.parse(localStorage.getItem('orbitTasks') || '[]');
-        } catch(e) {}
-
         try {
             const dbData = await dbLoadAll();
 
@@ -228,28 +221,8 @@ async function init() {
                     energy:       null,
                     ...t
                 }));
-                // Rescue fields from localStorage if Supabase columns are missing.
-                // If Supabase returns null/falsy for a field but local has a value,
-                // the column likely wasn't migrated yet — use the local value.
-                tasks = tasks.map(t => {
-                    const local = localTasksSnapshot.find(lt => lt.id === t.id);
-                    if (!local) return t;
-                    return {
-                        ...t,
-                        // Prefer Supabase for completed: it is the cross-device source of truth.
-                        // Fall back to local only when Supabase has no value (schema gap).
-                        completed:    t.completed    ?? local.completed    ?? false,
-                        completedAt:  t.completedAt  ?? local.completedAt  ?? null,
-                        dueDate:      t.dueDate      || local.dueDate      || null,
-                        priority:     t.priority     || local.priority     || null,
-                        notes:        t.notes        || local.notes        || '',
-                        context:      t.context      || local.context      || null,
-                        recurring:    t.recurring    || local.recurring    || false,
-                        recurringDay: t.recurringDay || local.recurringDay || null,
-                        archived:     t.archived     || local.archived     || false,
-                        energy:       t.energy       || local.energy       || null
-                    };
-                });
+                // Supabase is the cross-device source of truth for all fields.
+                // No local rescue needed — backward-compat defaults above handle missing columns.
                 currentProjectId = projects.find(p => p.id === currentProjectId)
                     ? currentProjectId
                     : projects[0].id;
