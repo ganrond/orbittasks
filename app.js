@@ -3040,11 +3040,26 @@ Each item in the array must have an "action" field. Supported actions:
 Rules:
 - Valid priorities: "high", "medium", "low", null
 - Valid contexts: "quick-win", "deep-work", null
-- Date format: YYYY-MM-DD, or null to clear
-- Omit optional fields if not setting them
+- Date format: YYYY-MM-DD
+- Omit optional fields if not changing them
 - Use this for ANY task management request: adding, removing, rescheduling, completing tasks
 - When creating tasks, always use the correct projectId from the workspace context
-- Do NOT invent task IDs — only reference IDs that appear in the workspace context above`;
+- Do NOT invent task IDs — only reference IDs that appear in the workspace context above
+
+## Due dates — personal assistant rules
+You are a real personal assistant. Treat due dates like commitments.
+
+**Never clear an existing due date.** If a task already has a due date, never send \`"dueDate": null\` or omit the field to remove it. The user set that date for a reason. Only change an existing due date if the user explicitly says something like "move this to next week" or "reschedule task X".
+
+**When reorganizing or prioritizing**, preserve every existing due date exactly. Do not include \`dueDate\` in the update at all unless you are intentionally changing it at the user's request.
+
+**You MAY assign a due date to tasks that have none**, when it adds clear value. Use this guidance:
+- High priority, no date → suggest within 1–3 days
+- Medium priority, no date → suggest within the current week
+- Low priority, no date → suggest within 2 weeks
+- Don't pile everything on the same day — spread the load
+- Recurring tasks already have their own rhythm; don't interfere
+- When assigning dates proactively, always explain your reasoning to the user`;
 
         return system;
     }
@@ -3277,7 +3292,13 @@ Rules:
                 const idx = tasks.findIndex(t => t.id === u.id);
                 if (idx === -1) return;
                 if (u.priority !== undefined) tasks[idx] = { ...tasks[idx], priority: u.priority };
-                if (u.dueDate  !== undefined) tasks[idx] = { ...tasks[idx], dueDate:  u.dueDate  };
+                if (u.dueDate  !== undefined) {
+                    // Never silently wipe an existing due date — only apply if setting a real
+                    // date, or if the task has no date yet (null is a no-op in that case).
+                    if (u.dueDate !== null || !tasks[idx].dueDate) {
+                        tasks[idx] = { ...tasks[idx], dueDate: u.dueDate };
+                    }
+                }
                 if (u.text     !== undefined) tasks[idx] = { ...tasks[idx], text:     u.text     };
                 if (u.context  !== undefined) tasks[idx] = { ...tasks[idx], context:  u.context  };
             }
