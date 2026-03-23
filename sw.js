@@ -1,14 +1,14 @@
-const CACHE_NAME = 'arcforge-v1';
+const CACHE_NAME = 'arcforge-v2';
 const ASSETS = [
   '/',
   '/index.html',
   '/styles.css',
   '/app.js',
-  '/config.js',
   '/manifest.json',
   '/favicon.svg',
   '/icon.svg',
 ];
+// config.js is gitignored and not deployed to Vercel — do NOT cache it
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
