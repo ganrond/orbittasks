@@ -1,4 +1,4 @@
-const CACHE_NAME = 'orbit-tasks-v1';
+const CACHE_NAME = 'arcforge-v1';
 const ASSETS = [
   '/',
   '/index.html',

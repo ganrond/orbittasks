@@ -1,11 +1,11 @@
 {
-  "name": "Orbit Tasks",
-  "short_name": "Orbit",
-  "description": "A space-themed personal task manager",
+  "name": "ArcForge",
+  "short_name": "ArcForge",
+  "description": "A minimal, high-contrast industrial task manager",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0015",
-  "theme_color": "#7c3aed",
+  "background_color": "#1C1C1E",
+  "theme_color": "#C47A2C",
   "orientation": "portrait",
   "icons": [
     {
