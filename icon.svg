@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a0533"/>
+      <stop offset="100%" stop-color="#0a0015"/>
+    </radialGradient>
+    <radialGradient id="planet" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#c4b5fd"/>
+      <stop offset="55%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#1a0533"/>
+    </radialGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+
+  <!-- Star dots -->
+  <circle cx="80" cy="90" r="2" fill="white" fill-opacity="0.5"/>
+  <circle cx="140" cy="50" r="1.5" fill="white" fill-opacity="0.4"/>
+  <circle cx="420" cy="80" r="2" fill="white" fill-opacity="0.45"/>
+  <circle cx="460" cy="140" r="1.5" fill="white" fill-opacity="0.3"/>
+  <circle cx="60" cy="400" r="2" fill="white" fill-opacity="0.4"/>
+  <circle cx="450" cy="420" r="1.5" fill="white" fill-opacity="0.5"/>
+  <circle cx="380" cy="460" r="2" fill="white" fill-opacity="0.35"/>
+  <circle cx="100" cy="460" r="1.5" fill="white" fill-opacity="0.4"/>
+  <circle cx="200" cy="70" r="1.5" fill="white" fill-opacity="0.3"/>
+  <circle cx="320" cy="50" r="2" fill="white" fill-opacity="0.4"/>
+
+  <!-- Back arc of orbit ring -->
+  <ellipse cx="256" cy="256" rx="176" ry="56" fill="none"
+           stroke="#4dffc4" stroke-width="8" stroke-opacity="0.3"
+           stroke-dasharray="340 200"
+           transform="rotate(-25 256 256)"/>
+
+  <!-- Planet -->
+  <circle cx="256" cy="256" r="104" fill="url(#planet)" filter="url(#glow)"/>
+
+  <!-- Planet highlight -->
+  <ellipse cx="224" cy="216" rx="35" ry="22" fill="white" fill-opacity="0.12"/>
+
+  <!-- Front arc of orbit ring -->
+  <ellipse cx="256" cy="256" rx="176" ry="56" fill="none"
+           stroke="#4dffc4" stroke-width="8"
+           stroke-dasharray="200 340"
+           stroke-dashoffset="-170"
+           transform="rotate(-25 256 256)"/>
+
+  <!-- Satellite dot -->
+  <circle cx="415" cy="181" r="18" fill="#4dffc4" filter="url(#glow)"/>
+</svg>

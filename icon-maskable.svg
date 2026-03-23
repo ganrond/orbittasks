@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
+  <defs>
+    <radialGradient id="bg2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#1a0533"/>
+      <stop offset="100%" stop-color="#0a0015"/>
+    </radialGradient>
+    <radialGradient id="planet2" cx="38%" cy="32%" r="68%">
+      <stop offset="0%" stop-color="#c4b5fd"/>
+      <stop offset="55%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#1a0533"/>
+    </radialGradient>
+    <filter id="glow2">
+      <feGaussianBlur stdDeviation="6" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Full bleed background (maskable icons need safe zone — content within center 80%) -->
+  <rect width="512" height="512" fill="url(#bg2)"/>
+
+  <!-- Star dots -->
+  <circle cx="100" cy="110" r="2" fill="white" fill-opacity="0.5"/>
+  <circle cx="400" cy="100" r="2" fill="white" fill-opacity="0.4"/>
+  <circle cx="420" cy="400" r="2" fill="white" fill-opacity="0.45"/>
+  <circle cx="90" cy="420" r="2" fill="white" fill-opacity="0.4"/>
+
+  <!-- Back arc of orbit ring -->
+  <ellipse cx="256" cy="256" rx="140" ry="45" fill="none"
+           stroke="#4dffc4" stroke-width="7" stroke-opacity="0.3"
+           stroke-dasharray="270 165"
+           transform="rotate(-25 256 256)"/>
+
+  <!-- Planet -->
+  <circle cx="256" cy="256" r="90" fill="url(#planet2)" filter="url(#glow2)"/>
+
+  <!-- Planet highlight -->
+  <ellipse cx="228" cy="222" rx="30" ry="19" fill="white" fill-opacity="0.12"/>
+
+  <!-- Front arc of orbit ring -->
+  <ellipse cx="256" cy="256" rx="140" ry="45" fill="none"
+           stroke="#4dffc4" stroke-width="7"
+           stroke-dasharray="165 270"
+           stroke-dashoffset="-135"
+           transform="rotate(-25 256 256)"/>
+
+  <!-- Satellite dot -->
+  <circle cx="381" cy="195" r="15" fill="#4dffc4" filter="url(#glow2)"/>
+</svg>
