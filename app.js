@@ -231,6 +231,14 @@ async function init() {
                 localStorage.setItem('orbitProjects', JSON.stringify(projects));
                 localStorage.setItem('orbitTemplates', JSON.stringify(templates));
                 console.log('[App] Dados carregados do Supabase. Projetos:', projects.length, '| Tarefas:', tasks.length);
+                // Diagnostic: check for projectId mismatches
+                const projectIds = new Set(projects.map(p => p.id));
+                const taskProjectIds = [...new Set(tasks.map(t => t.projectId))];
+                const orphanIds = taskProjectIds.filter(id => !projectIds.has(id));
+                console.log('[DIAG] Project IDs:', [...projectIds]);
+                console.log('[DIAG] Task projectIds (unique):', taskProjectIds);
+                console.log('[DIAG] Orphaned task projectIds (no matching project):', orphanIds);
+                console.log('[DIAG] currentProjectId:', currentProjectId, '| valid?', projectIds.has(currentProjectId));
             } else {
                 console.log('[App] Supabase vazio. Migrando dados locais para a nuvem...');
                 if (projects.length > 0) dbSaveProjects(projects);
@@ -954,7 +962,6 @@ function renderTasks() {
         projectTasks = tasks.filter(t => !t.archived && !t.completed && t.dueDate && t.dueDate <= todayStr);
     } else {
         projectTasks = tasks.filter(t => t.projectId === currentProjectId && !t.archived);
-        console.log('[DEBUG] currentProjectId:', currentProjectId, '| tasks[0].projectId:', tasks[0]?.projectId, '| tasks[0].archived:', tasks[0]?.archived, '| matched:', projectTasks.length);
     }
 
     let filteredTasks = [...projectTasks];
