@@ -954,6 +954,7 @@ function renderTasks() {
         projectTasks = tasks.filter(t => !t.archived && !t.completed && t.dueDate && t.dueDate <= todayStr);
     } else {
         projectTasks = tasks.filter(t => t.projectId === currentProjectId && !t.archived);
+        console.log('[DEBUG] currentProjectId:', currentProjectId, '| tasks[0].projectId:', tasks[0]?.projectId, '| tasks[0].archived:', tasks[0]?.archived, '| matched:', projectTasks.length);
     }
 
     let filteredTasks = [...projectTasks];
