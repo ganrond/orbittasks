@@ -50,19 +50,13 @@
         <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <div class="orbit-brand">
-                    <!-- ArcForge logo: arc + anvil -->
-                    <svg class="orbit-logo" width="34" height="34" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                        <!-- Arc structure -->
-                        <path d="M5 26 C5 10 29 10 29 26" stroke="#3A3A3D" stroke-width="6" stroke-linecap="round" fill="none"/>
-                        <!-- Copper accent streak on arc -->
-                        <path d="M21 10 C25.5 13 28.5 19 29 26" stroke="#C47A2C" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-                        <!-- Anvil top surface -->
-                        <rect x="9" y="22" width="16" height="5" rx="2" fill="#3A3A3D"/>
-                        <!-- Anvil horn -->
-                        <path d="M9 22.5 L5.5 25.5 L9 25.5Z" fill="#3A3A3D"/>
-                        <!-- Anvil base -->
-                        <rect x="13" y="27" width="4" height="3" rx="0.5" fill="#2A2A2D"/>
+                <div class="arcforge-brand">
+                    <!-- ArcForge logo: anvil -->
+                    <svg class="arcforge-logo" width="34" height="34" viewBox="0 0 34 34" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                        <path d="M3 11 L10 8 L10 15 Z" fill="#C47A2C"/>
+                        <rect x="9" y="7" width="22" height="8" rx="2" fill="#C47A2C"/>
+                        <rect x="14" y="15" width="12" height="5" fill="#A8621E"/>
+                        <rect x="9" y="20" width="22" height="8" rx="2" fill="#C47A2C"/>
                     </svg>
                     <h2>ArcForge</h2>
                 </div>
@@ -178,8 +172,8 @@
 
                 <div id="voice-help" class="voice-help">
                     <div class="voice-help-triggers">
-                        <span class="voice-chip voice-chip-wake"><i class="fa-solid fa-microphone-lines"></i> Hey Orbit</span>
-                        <span class="voice-chip voice-chip-stop"><i class="fa-solid fa-circle-stop"></i> Goodbye Orbit</span>
+                        <span class="voice-chip voice-chip-wake"><i class="fa-solid fa-microphone-lines"></i> Hey ArcForge</span>
+                        <span class="voice-chip voice-chip-stop"><i class="fa-solid fa-circle-stop"></i> Goodbye ArcForge</span>
                     </div>
                     <div class="voice-help-cmds">
                         <span class="voice-cmd">Add task [name]</span>
@@ -372,7 +366,7 @@
     <div id="checkin-overlay" class="checkin-overlay hidden" role="dialog" aria-modal="true" aria-label="Morning Check-In">
         <div class="checkin-card">
             <div class="checkin-eyebrow">
-                <span class="checkin-orbit-dot"></span>
+                <span class="checkin-arcforge-dot"></span>
                 <span>Morning Check-In</span>
             </div>
             <h2 class="checkin-title">Set your intention<br>for today.</h2>
@@ -453,7 +447,7 @@
         <div class="ai-panel-header">
             <div class="ai-panel-title">
                 <i class="fa-solid fa-robot"></i>
-                <span>Orbit AI</span>
+                <span>ArcForge AI</span>
                 <span class="ai-model-badge">opus</span>
             </div>
             <div class="ai-panel-actions">
@@ -531,7 +525,7 @@
         <div id="ai-messages" class="ai-messages">
             <div class="ai-welcome" id="ai-welcome">
                 <div class="ai-welcome-icon"><i class="fa-solid fa-robot"></i></div>
-                <p class="ai-welcome-title">Hey, I'm Orbit AI</p>
+                <p class="ai-welcome-title">Hey, I'm ArcForge AI</p>
                 <p class="ai-welcome-sub">I have full context of your projects and tasks. Ask me to analyze your workload, find bottlenecks, suggest what to tackle next, or anything else.</p>
                 <div class="ai-starters">
                     <button class="ai-starter-btn ai-starter-featured" data-prompt="Give me a focused morning briefing based on my tasks. Tell me: (1) the 3 most important things to tackle today and why, (2) anything overdue I should address first, and (3) one thing I should NOT work on today so I stay focused.">📋 Daily briefing</button>

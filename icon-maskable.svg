@@ -1,19 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" fill="none">
-  <!-- Full bleed background for maskable (safe zone: inner 80%) -->
   <rect width="512" height="512" fill="#1C1C1E"/>
-
-  <!-- Main arc structure -->
-  <path d="M70 390 C70 160 442 160 442 390" stroke="#3A3A3D" stroke-width="65" stroke-linecap="round" fill="none"/>
-
-  <!-- Copper accent streak -->
-  <path d="M305 165 C368 200 415 278 442 390" stroke="#C47A2C" stroke-width="28" stroke-linecap="round" fill="none"/>
-
-  <!-- Anvil top surface -->
-  <rect x="138" y="338" width="236" height="72" rx="14" fill="#3A3A3D"/>
-
-  <!-- Anvil horn -->
-  <path d="M138 346 L84 390 L138 390Z" fill="#3A3A3D"/>
-
-  <!-- Anvil base -->
-  <rect x="198" y="410" width="72" height="44" rx="5" fill="#2A2A2D"/>
+  <!-- Horn (inset for maskable safe zone) -->
+  <path d="M72 175 L168 136 L168 232 Z" fill="#C47A2C"/>
+  <!-- Top surface -->
+  <rect x="152" y="120" width="300" height="112" rx="20" fill="#C47A2C"/>
+  <!-- Waist -->
+  <rect x="222" y="232" width="160" height="72" fill="#A8621E"/>
+  <!-- Base -->
+  <rect x="152" y="304" width="300" height="112" rx="20" fill="#C47A2C"/>
 </svg>

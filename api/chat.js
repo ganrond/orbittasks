@@ -1,4 +1,4 @@
-// Orbit Tasks — AI Chat Proxy
+// ArcForge — AI Chat Proxy
 // Keeps the Anthropic API key server-side (never exposed to the browser)
 module.exports = async (req, res) => {
     // CORS preflight

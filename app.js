@@ -11,19 +11,19 @@ const defaultTemplates = [
 // State Initialization
 let projects = [];
 try {
-    const parsed = JSON.parse(localStorage.getItem('orbitProjects'));
+    const parsed = JSON.parse(localStorage.getItem('arcforgeProjects'));
     if (Array.isArray(parsed) && parsed.length > 0) projects = parsed;
 } catch(e) {}
 
 let templates = [];
 try {
-    const parsed = JSON.parse(localStorage.getItem('orbitTemplates'));
+    const parsed = JSON.parse(localStorage.getItem('arcforgeTemplates'));
     if (Array.isArray(parsed)) templates = parsed;
 } catch(e) {}
 
 let tasks = [];
 try {
-    const parsed = JSON.parse(localStorage.getItem('orbitTasks'));
+    const parsed = JSON.parse(localStorage.getItem('arcforgeTasks'));
     if (Array.isArray(parsed)) tasks = parsed;
 } catch(e) {}
 
@@ -47,7 +47,7 @@ tasks    = tasks.map((t, i) => ({
 }));
 projects = projects.map((p, i) => ({ archived: false, order: i, ...p }));
 
-let currentProjectId = localStorage.getItem('orbitCurrentProject') || projects[0]?.id;
+let currentProjectId = localStorage.getItem('arcforgeCurrentProject') || projects[0]?.id;
 let currentFilter = 'all';
 let currentContextFilter = null; // null | 'deep-work' | 'quick-win'
 let currentRecurringFilter = null; // null | 'recurring' | 'monday' ... 'sunday'
@@ -58,21 +58,21 @@ let isTodayView = false;
 // Weekly Planning state
 let weeklyTaskIds = [];
 try {
-    const parsed = JSON.parse(localStorage.getItem('orbitWeeklyTaskIds'));
+    const parsed = JSON.parse(localStorage.getItem('arcforgeWeeklyTaskIds'));
     if (Array.isArray(parsed)) weeklyTaskIds = parsed;
 } catch(e) {}
 
 // Daily Check-In log: [{ date: 'YYYY-MM-DD', topTask: string, completedYesterday: string }]
 let checkInLog = [];
 try {
-    const parsed = JSON.parse(localStorage.getItem('orbitCheckInLog'));
+    const parsed = JSON.parse(localStorage.getItem('arcforgeCheckInLog'));
     if (Array.isArray(parsed)) checkInLog = parsed;
 } catch(e) {}
 
-let currentTheme = localStorage.getItem('orbitTheme') || 'default';
+let currentTheme = localStorage.getItem('arcforgeTheme') || 'default';
 
 // Pomodoro duration (in seconds), default 25 min, persisted
-let pomodoroDuration = parseInt(localStorage.getItem('orbitPomodoroDuration') || '1500', 10);
+let pomodoroDuration = parseInt(localStorage.getItem('arcforgePomodoroDuration') || '1500', 10);
 
 // Initialize Supabase connection (returns false if credentials not filled)
 const dbEnabled = (typeof initDB === 'function') ? initDB() : false;
@@ -227,9 +227,9 @@ async function init() {
                     ? currentProjectId
                     : projects[0].id;
                 // Mirror Supabase data to localStorage so offline reloads stay fresh
-                localStorage.setItem('orbitTasks',    JSON.stringify(tasks));
-                localStorage.setItem('orbitProjects', JSON.stringify(projects));
-                localStorage.setItem('orbitTemplates', JSON.stringify(templates));
+                localStorage.setItem('arcforgeTasks',    JSON.stringify(tasks));
+                localStorage.setItem('arcforgeProjects', JSON.stringify(projects));
+                localStorage.setItem('arcforgeTemplates', JSON.stringify(templates));
                 console.log('[App] Dados carregados do Supabase.');
             } else {
                 console.log('[App] Supabase vazio. Migrando dados locais para a nuvem...');
@@ -245,9 +245,9 @@ async function init() {
         try {
             const cloudPrompt = await dbLoadSetting('masterPrompt');
             if (cloudPrompt) {
-                localStorage.setItem('orbitMasterPrompt', cloudPrompt);
-                if (!localStorage.getItem('orbitMasterPromptFile')) {
-                    localStorage.setItem('orbitMasterPromptFile', JSON.stringify({
+                localStorage.setItem('arcforgeMasterPrompt', cloudPrompt);
+                if (!localStorage.getItem('arcforgeMasterPromptFile')) {
+                    localStorage.setItem('arcforgeMasterPromptFile', JSON.stringify({
                         name: 'synced from cloud',
                         size: new Blob([cloudPrompt]).size,
                         uploadedAt: new Date().toISOString()
@@ -268,20 +268,20 @@ async function init() {
             ]);
             if (cloudTheme) {
                 currentTheme = cloudTheme;
-                localStorage.setItem('orbitTheme', cloudTheme);
+                localStorage.setItem('arcforgeTheme', cloudTheme);
                 applyTheme(cloudTheme);
             }
             if (cloudPomodoro) {
                 pomodoroDuration = parseInt(cloudPomodoro, 10) || 1500;
                 timeRemaining = pomodoroDuration;
-                localStorage.setItem('orbitPomodoroDuration', pomodoroDuration.toString());
+                localStorage.setItem('arcforgePomodoroDuration', pomodoroDuration.toString());
             }
             if (cloudCheckIn) {
                 try {
                     const parsed = JSON.parse(cloudCheckIn);
                     if (Array.isArray(parsed)) {
                         checkInLog = parsed;
-                        localStorage.setItem('orbitCheckInLog', JSON.stringify(checkInLog));
+                        localStorage.setItem('arcforgeCheckInLog', JSON.stringify(checkInLog));
                     }
                 } catch(e) {}
             }
@@ -290,7 +290,7 @@ async function init() {
                     const parsed = JSON.parse(cloudWeekly);
                     if (Array.isArray(parsed)) {
                         weeklyTaskIds = parsed;
-                        localStorage.setItem('orbitWeeklyTaskIds', JSON.stringify(weeklyTaskIds));
+                        localStorage.setItem('arcforgeWeeklyTaskIds', JSON.stringify(weeklyTaskIds));
                     }
                 } catch(e) {}
             }
@@ -314,11 +314,11 @@ async function init() {
     // Auto morning brief: 7am–12pm, once per day
     const nowHour = new Date().getHours();
     const todayKey = new Date().toISOString().split('T')[0];
-    if (nowHour >= 7 && nowHour < 12 && localStorage.getItem('orbitLastMorningBrief') !== todayKey) {
+    if (nowHour >= 7 && nowHour < 12 && localStorage.getItem('arcforgeLastMorningBrief') !== todayKey) {
         setTimeout(() => {
             if (aiActions.openAndSend) {
                 aiActions.openAndSend('Give me a focused morning briefing based on my tasks. Tell me: (1) the 3 most important things to tackle today and why, (2) anything overdue I should address first, and (3) one thing I should NOT work on today so I stay focused.');
-                localStorage.setItem('orbitLastMorningBrief', todayKey);
+                localStorage.setItem('arcforgeLastMorningBrief', todayKey);
             }
         }, 1500);
     }
@@ -339,14 +339,14 @@ function checkRecurringTasks() {
     const weekStart = getWeekStart(today);
     const weekStartStr = weekStart.toISOString().split('T')[0];
 
-    const lastCheck = localStorage.getItem('orbitRecurringWeek');
+    const lastCheck = localStorage.getItem('arcforgeRecurringWeek');
     if (lastCheck === weekStartStr) return; // already processed this week
 
     const dayOffset = { monday: 0, tuesday: 1, wednesday: 2, thursday: 3, friday: 4, saturday: 5, sunday: 6 };
 
     const recurringTasks = tasks.filter(t => t.recurring);
     if (recurringTasks.length === 0) {
-        localStorage.setItem('orbitRecurringWeek', weekStartStr);
+        localStorage.setItem('arcforgeRecurringWeek', weekStartStr);
         return;
     }
 
@@ -373,7 +373,7 @@ function checkRecurringTasks() {
 
     tasks = [...newTasks, ...tasks];
     saveAll();
-    localStorage.setItem('orbitRecurringWeek', weekStartStr);
+    localStorage.setItem('arcforgeRecurringWeek', weekStartStr);
     console.log(`[Recurring] Generated ${newTasks.length} task(s) for week of ${weekStartStr}`);
 }
 
@@ -412,7 +412,7 @@ function initNotifications() {
     };
 
     // Morning reminder (runs once per day)
-    if (localStorage.getItem('orbitLastNotification') !== today) {
+    if (localStorage.getItem('arcforgeLastNotification') !== today) {
         const pending  = tasks.filter(t => !t.completed && !t.archived && t.dueDate);
         const overdue  = pending.filter(t => t.dueDate < today);
         const dueToday = pending.filter(t => t.dueDate === today);
@@ -423,28 +423,28 @@ function initNotifications() {
                 if (overdue.length)  parts.push(`${overdue.length} overdue`);
                 if (dueToday.length) parts.push(`${dueToday.length} due today`);
                 const preview = [...overdue, ...dueToday].slice(0, 3).map(t => t.text).join(', ');
-                new Notification('Orbit Tasks', {
+                new Notification('ArcForge', {
                     body: `${parts.join(' · ')}: ${preview}`,
                     icon: '/favicon.svg',
-                    tag:  'orbit-reminder'
+                    tag:  'arcforge-reminder'
                 });
-                localStorage.setItem('orbitLastNotification', today);
+                localStorage.setItem('arcforgeLastNotification', today);
             });
         }
     }
 
     // End-of-day nudge: after 5pm, if you have pending tasks + completed some today
-    if (hour >= 17 && localStorage.getItem('orbitLastEodNudge') !== today) {
+    if (hour >= 17 && localStorage.getItem('arcforgeLastEodNudge') !== today) {
         const pendingAll   = tasks.filter(t => !t.completed && !t.archived);
         const completedToday = tasks.filter(t => t.completed && t.completedAt && t.completedAt.startsWith(today));
         if (pendingAll.length > 0 && completedToday.length > 0) {
             fireWithPermission(() => {
-                new Notification('Orbit — End of Day', {
+                new Notification('ArcForge — End of Day', {
                     body: `Great work! ${completedToday.length} task${completedToday.length > 1 ? 's' : ''} done today. ${pendingAll.length} still pending for tomorrow.`,
                     icon: '/favicon.svg',
-                    tag:  'orbit-eod'
+                    tag:  'arcforge-eod'
                 });
-                localStorage.setItem('orbitLastEodNudge', today);
+                localStorage.setItem('arcforgeLastEodNudge', today);
             });
         }
     }
@@ -474,10 +474,10 @@ function updateWorkloadMeter() {
 
 // --- Data Persistence ---
 function saveAll() {
-    localStorage.setItem('orbitProjects', JSON.stringify(projects));
-    localStorage.setItem('orbitTemplates', JSON.stringify(templates));
-    localStorage.setItem('orbitTasks', JSON.stringify(tasks));
-    localStorage.setItem('orbitCurrentProject', currentProjectId);
+    localStorage.setItem('arcforgeProjects', JSON.stringify(projects));
+    localStorage.setItem('arcforgeTemplates', JSON.stringify(templates));
+    localStorage.setItem('arcforgeTasks', JSON.stringify(tasks));
+    localStorage.setItem('arcforgeCurrentProject', currentProjectId);
     if (dbEnabled) {
         dbSaveProjects(projects);
         dbSaveTasks(tasks);
@@ -502,7 +502,7 @@ function initDurationPicker() {
             durationBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             pomodoroDuration = mins * 60;
-            localStorage.setItem('orbitPomodoroDuration', pomodoroDuration.toString());
+            localStorage.setItem('arcforgePomodoroDuration', pomodoroDuration.toString());
             if (dbEnabled) dbSaveSetting('pomodoroDuration', pomodoroDuration.toString());
             // If timer is not running, reset display
             if (!activeTimerTaskId) {
@@ -1955,7 +1955,7 @@ function exportData() {
     const dd = today.getDate().toString().padStart(2, '0');
     const mm = (today.getMonth() + 1).toString().padStart(2, '0');
     const yyyy = today.getFullYear();
-    const filename = `orbit-tasks-${yyyy}${mm}${dd}.json`;
+    const filename = `arcforge-${yyyy}${mm}${dd}.json`;
 
     const data = {
         exportedAt: today.toISOString(),
@@ -2064,7 +2064,7 @@ function submitCheckIn(skipped = false) {
     });
     // Keep last 30 days
     if (checkInLog.length > 30) checkInLog = checkInLog.slice(-30);
-    localStorage.setItem('orbitCheckInLog', JSON.stringify(checkInLog));
+    localStorage.setItem('arcforgeCheckInLog', JSON.stringify(checkInLog));
     if (dbEnabled) dbSaveSetting('checkInLog', JSON.stringify(checkInLog));
 
     hideCheckIn();
@@ -2149,7 +2149,7 @@ function initCheckIn() {
 // =====================================================
 
 function saveWeeklyList() {
-    localStorage.setItem('orbitWeeklyTaskIds', JSON.stringify(weeklyTaskIds));
+    localStorage.setItem('arcforgeWeeklyTaskIds', JSON.stringify(weeklyTaskIds));
     if (dbEnabled) dbSaveSetting('weeklyTaskIds', JSON.stringify(weeklyTaskIds));
 }
 
@@ -2593,8 +2593,8 @@ function initVoiceControl() {
 
     recognition.onstart = () => {
         if (voiceBtn) voiceBtn.classList.add('recording');
-        setStatus('Say "Hey Orbit"...');
-        taskInput.placeholder = 'Say "Hey Orbit" to start...';
+        setStatus('Say "Hey ArcForge"...');
+        taskInput.placeholder = 'Say "Hey ArcForge" to start...';
     };
 
     recognition.onend = () => {
@@ -2619,26 +2619,26 @@ function initVoiceControl() {
     };
 
     function isWakeWord(text) {
-        return text.includes('hey orbit') ||
+        return text.includes('hey arcforge') ||
                text.includes('hey or bit') ||
-               text.includes('hey or orbit') ||
-               text.includes('a orbit') ||
-               text.includes('hey orbits');
+               text.includes('hey or arcforge') ||
+               text.includes('an arcforge') ||
+               text.includes('hey arcforges');
     }
 
     function isGoodbyeWord(text) {
-        return text.includes('goodbye orbit') ||
-               text.includes('good bye orbit') ||
-               text.includes('bye orbit') ||
-               text.includes('stop orbit');
+        return text.includes('goodbye arcforge') ||
+               text.includes('good bye arcforge') ||
+               text.includes('bye arcforge') ||
+               text.includes('stop arcforge');
     }
 
     function stripWakeWord(text) {
         return text
-            .replace(/hey orbit[s]?/g, '')
+            .replace(/hey arcforge[s]?/g, '')
             .replace(/hey or bits?/g, '')
-            .replace(/hey or orbit/g, '')
-            .replace(/a orbit/g, '')
+            .replace(/hey or arcforge/g, '')
+            .replace(/an arcforge/g, '')
             .trim();
     }
 
@@ -2648,8 +2648,8 @@ function initVoiceControl() {
         setStatus(`Done: "${command}"`, 'var(--accent-secondary)');
         setTimeout(() => {
             if (isActive) {
-                setStatus('Say "Hey Orbit"...');
-                taskInput.placeholder = 'Say "Hey Orbit" to start...';
+                setStatus('Say "Hey ArcForge"...');
+                taskInput.placeholder = 'Say "Hey ArcForge" to start...';
             }
         }, 2500);
     }
@@ -2824,7 +2824,7 @@ function initThemePicker() {
 function applyTheme(theme) {
     currentTheme = theme;
     document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('orbitTheme', theme);
+    localStorage.setItem('arcforgeTheme', theme);
 
     document.querySelectorAll('.theme-option').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.theme === theme);
@@ -2875,12 +2875,12 @@ function initAI() {
     // ---- State ----
     let chatHistory = [];
     try {
-        const saved = JSON.parse(localStorage.getItem('orbitChatHistory') || '[]');
+        const saved = JSON.parse(localStorage.getItem('arcforgeChatHistory') || '[]');
         if (Array.isArray(saved) && saved.length > 0) chatHistory = saved;
     } catch(e) {}
 
     function saveChatHistory() {
-        localStorage.setItem('orbitChatHistory', JSON.stringify(chatHistory));
+        localStorage.setItem('arcforgeChatHistory', JSON.stringify(chatHistory));
         if (dbEnabled) dbSaveSetting('chatHistory', JSON.stringify(chatHistory));
     }
 
@@ -2915,10 +2915,10 @@ function initAI() {
     // ================================================================
     function mpRenderState() {
         const meta = (() => {
-            try { return JSON.parse(localStorage.getItem('orbitMasterPromptFile') || 'null'); }
+            try { return JSON.parse(localStorage.getItem('arcforgeMasterPromptFile') || 'null'); }
             catch { return null; }
         })();
-        const hasContent = !!(localStorage.getItem('orbitMasterPrompt') || '').trim();
+        const hasContent = !!(localStorage.getItem('arcforgeMasterPrompt') || '').trim();
 
         if (hasContent && meta) {
             // Show file card, hide dropzone & editor
@@ -2934,7 +2934,7 @@ function initAI() {
             mpFileCard.classList.add('hidden');
             mpDropzone.classList.add('hidden');
             mpEditor.classList.remove('hidden');
-            if (mpTextarea) mpTextarea.value = localStorage.getItem('orbitMasterPrompt') || '';
+            if (mpTextarea) mpTextarea.value = localStorage.getItem('arcforgeMasterPrompt') || '';
         } else {
             // Nothing yet — show dropzone
             mpFileCard.classList.add('hidden');
@@ -2953,8 +2953,8 @@ function initAI() {
         reader.onload = (e) => {
             const text = (e.target.result || '').trim();
             if (!text) { showToast('The file appears to be empty.', 'warning'); return; }
-            localStorage.setItem('orbitMasterPrompt', text);
-            localStorage.setItem('orbitMasterPromptFile', JSON.stringify({
+            localStorage.setItem('arcforgeMasterPrompt', text);
+            localStorage.setItem('arcforgeMasterPromptFile', JSON.stringify({
                 name: file.name,
                 size: file.size,
                 uploadedAt: new Date().toISOString()
@@ -2979,8 +2979,8 @@ function initAI() {
     // Delete
     mpDeleteBtn.addEventListener('click', () => {
         if (!confirm('Remove the MasterPrompt? The AI will only have task context.')) return;
-        localStorage.removeItem('orbitMasterPrompt');
-        localStorage.removeItem('orbitMasterPromptFile');
+        localStorage.removeItem('arcforgeMasterPrompt');
+        localStorage.removeItem('arcforgeMasterPromptFile');
         if (dbEnabled) dbDeleteSetting('masterPrompt');
         mpRenderState();
         showToast('MasterPrompt removed.', 'warning');
@@ -2991,7 +2991,7 @@ function initAI() {
         mpFileCard.classList.add('hidden');
         mpDropzone.classList.add('hidden');
         mpEditor.classList.remove('hidden');
-        if (mpTextarea) { mpTextarea.value = localStorage.getItem('orbitMasterPrompt') || ''; mpTextarea.focus(); }
+        if (mpTextarea) { mpTextarea.value = localStorage.getItem('arcforgeMasterPrompt') || ''; mpTextarea.focus(); }
     });
 
     // "type manually instead" link
@@ -3005,9 +3005,9 @@ function initAI() {
     mpSaveBtn.addEventListener('click', () => {
         const val = (mpTextarea.value || '').trim();
         if (!val) { showToast('Write something first.', 'warning'); return; }
-        localStorage.setItem('orbitMasterPrompt', val);
-        localStorage.removeItem('orbitMasterPromptFile');
-        localStorage.setItem('orbitMasterPromptFile', JSON.stringify({
+        localStorage.setItem('arcforgeMasterPrompt', val);
+        localStorage.removeItem('arcforgeMasterPromptFile');
+        localStorage.setItem('arcforgeMasterPromptFile', JSON.stringify({
             name: 'manual entry',
             size: new Blob([val]).size,
             uploadedAt: new Date().toISOString()
@@ -3040,7 +3040,7 @@ function initAI() {
         chatHistory = [];
         messagesEl.innerHTML = '';
         messagesEl.appendChild(buildWelcomeEl());
-        localStorage.removeItem('orbitChatHistory');
+        localStorage.removeItem('arcforgeChatHistory');
         if (dbEnabled) dbDeleteSetting('chatHistory');
         showToast('New conversation started.', 'info');
     });
@@ -3051,7 +3051,7 @@ function initAI() {
         const activeProjects = projects.filter(p => !p.archived).length;
         const pendingTasks   = tasks.filter(t => !t.completed).length;
         const totalTasks     = tasks.length;
-        const mp = (localStorage.getItem('orbitMasterPrompt') || '').trim();
+        const mp = (localStorage.getItem('arcforgeMasterPrompt') || '').trim();
         contextInfo.textContent =
             `${activeProjects} projects · ${pendingTasks} pending / ${totalTasks} tasks` +
             (mp ? ' · MasterPrompt active' : '');
@@ -3060,7 +3060,7 @@ function initAI() {
 
     // ---- Build system prompt ----
     function buildSystemPrompt() {
-        const mp  = (localStorage.getItem('orbitMasterPrompt') || '').trim();
+        const mp  = (localStorage.getItem('arcforgeMasterPrompt') || '').trim();
         const now = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
 
         // Summarise data for context
@@ -3099,7 +3099,7 @@ function initAI() {
 
         const checkInCtx = getCheckInContext();
 
-        let system = `You are Orbit AI, an intelligent productivity assistant embedded in Orbit Tasks, a personal task manager.
+        let system = `You are ArcForge AI, an intelligent productivity assistant embedded in ArcForge, a personal task manager.
 Today is ${now}.
 
 ${mp ? `## About the user\n${mp}\n` : ''}
@@ -3117,7 +3117,7 @@ ${checkInCtx}
 You can create, update, complete, and delete tasks directly. When you do, ALWAYS include both:
 1. A clear human-readable explanation of what you're doing and why
 2. At the very end of your response, this exact block (no spaces or line breaks inside the markers):
-<!--ORBIT_UPDATES[...]ORBIT_UPDATES-->
+<!--ARCFORGE_UPDATES[...]ARCFORGE_UPDATES-->
 
 Each item in the array must have an "action" field. Supported actions:
 
@@ -3176,7 +3176,7 @@ You are a real personal assistant. Treat due dates like commitments.
         el.id = 'ai-welcome';
         el.innerHTML = `
             <div class="ai-welcome-icon"><i class="fa-solid fa-robot"></i></div>
-            <p class="ai-welcome-title">Hey, I'm Orbit AI</p>
+            <p class="ai-welcome-title">Hey, I'm ArcForge AI</p>
             <p class="ai-welcome-sub">I have full context of your projects and tasks. Ask me to analyze your workload, find bottlenecks, suggest what to tackle next, or anything else.</p>
             <div class="ai-starters">
                 <button class="ai-starter-btn ai-starter-featured" data-prompt="Give me a focused morning briefing based on my tasks. Tell me: (1) the 3 most important things to tackle today and why, (2) anything overdue I should address first, and (3) one thing I should NOT work on today so I stay focused.">📋 Daily briefing</button>
@@ -3331,11 +3331,11 @@ You are a real personal assistant. Treat due dates like commitments.
             // Finalise
             if (fullText) {
                 // Check for task update block before rendering
-                const updatesMatch = fullText.match(/<!--ORBIT_UPDATES(\[[\s\S]*?\])ORBIT_UPDATES-->/);
+                const updatesMatch = fullText.match(/<!--ARCFORGE_UPDATES(\[[\s\S]*?\])ARCFORGE_UPDATES-->/);
                 if (updatesMatch) {
                     try {
                         const updates = JSON.parse(updatesMatch[1]);
-                        const cleanText = fullText.replace(/<!--ORBIT_UPDATES[\s\S]*?ORBIT_UPDATES-->/, '').trim();
+                        const cleanText = fullText.replace(/<!--ARCFORGE_UPDATES[\s\S]*?ARCFORGE_UPDATES-->/, '').trim();
                         bubble.innerHTML = renderMarkdown(cleanText);
                         showApplyCard(wrapper, updates);
                     } catch {
@@ -3806,7 +3806,7 @@ Structure your response:
             `2. Classify it as **"quick-win"** (can be done in ~30 min or less, low effort) or **"deep-work"** (requires focus, concentration, or significant time)\n` +
             `3. If the task has NO due date, assign a realistic one based on its priority, complexity, and the overall workload — spread them out, don't pile everything on the same day. Never touch tasks that already have a due date.\n\n` +
             `First give me a short summary of your reasoning — what drove your priority decisions, how you split quick wins vs deep work, and which tasks you gave due dates to and why.\n` +
-            `Then apply ALL the changes at once using ORBIT_UPDATES.`
+            `Then apply ALL the changes at once using ARCFORGE_UPDATES.`
         ), 200);
     });
 
@@ -3834,9 +3834,9 @@ Structure your response:
     function renderChatHistory(history) {
         messagesEl.innerHTML = '';
         history.forEach(m => {
-            // Strip ORBIT_UPDATES block from display (keep it in chatHistory for AI context)
+            // Strip ARCFORGE_UPDATES block from display (keep it in chatHistory for AI context)
             const displayText = m.role === 'assistant'
-                ? m.content.replace(/<!--ORBIT_UPDATES[\s\S]*?ORBIT_UPDATES-->/, '').trim()
+                ? m.content.replace(/<!--ARCFORGE_UPDATES[\s\S]*?ARCFORGE_UPDATES-->/, '').trim()
                 : m.content;
             appendBubble(m.role, displayText);
         });
@@ -3855,7 +3855,7 @@ Structure your response:
                 const cloud = JSON.parse(cloudStr);
                 if (!Array.isArray(cloud) || cloud.length <= chatHistory.length) return;
                 chatHistory = cloud;
-                localStorage.setItem('orbitChatHistory', JSON.stringify(chatHistory));
+                localStorage.setItem('arcforgeChatHistory', JSON.stringify(chatHistory));
                 renderChatHistory(chatHistory);
             } catch(e) {}
         })();
