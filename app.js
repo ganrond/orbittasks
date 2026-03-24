@@ -230,7 +230,7 @@ async function init() {
                 localStorage.setItem('orbitTasks',    JSON.stringify(tasks));
                 localStorage.setItem('orbitProjects', JSON.stringify(projects));
                 localStorage.setItem('orbitTemplates', JSON.stringify(templates));
-                console.log('[App] Dados carregados do Supabase.');
+                console.log('[App] Dados carregados do Supabase. Projetos:', projects.length, '| Tarefas:', tasks.length);
             } else {
                 console.log('[App] Supabase vazio. Migrando dados locais para a nuvem...');
                 if (projects.length > 0) dbSaveProjects(projects);
