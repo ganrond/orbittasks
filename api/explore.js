@@ -17,23 +17,42 @@ module.exports = async (req, res) => {
     if (!topic || !topic.trim()) return res.status(400).json({ error: 'topic is required.' });
 
     try {
-        // Build Tavily query with filter hint
+        // Build Tavily query with filter-specific quality signals
         let query = topic.trim();
-        if (filter === 'podcast') query += ' podcast episode';
-        else if (filter === 'video') query += ' youtube video tutorial';
-        else if (filter === 'article') query += ' article guide explained';
+        let includeDomains = [];
+
+        if (filter === 'podcast') {
+            // Search podcast directories directly for known quality shows
+            query += ' podcast episode';
+            includeDomains = ['open.spotify.com', 'podcasts.apple.com'];
+        } else if (filter === 'video') {
+            // Restrict to YouTube only — vastly improves relevance
+            query += ' explained';
+            includeDomains = ['youtube.com'];
+        } else if (filter === 'article') {
+            // Restrict to high-authority publications
+            includeDomains = [
+                'hbr.org', 'inc.com', 'fastcompany.com', 'entrepreneur.com',
+                'firstround.com', 'paulgraham.com', 'a16z.com', 'ryanholiday.net',
+                'sethgodin.com', 'medium.com', 'substack.com'
+            ];
+        }
+        // For 'all': no domain restriction — rely on Claude's quality judgment
 
         // 1. Call Tavily search
+        const tavilyBody = {
+            api_key: tavilyKey,
+            query,
+            search_depth: 'basic',
+            max_results: 7,
+            include_answer: true,
+        };
+        if (includeDomains.length) tavilyBody.include_domains = includeDomains;
+
         const tavilyRes = await fetch('https://api.tavily.com/search', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                api_key: tavilyKey,
-                query,
-                search_depth: 'basic',
-                max_results: 6,
-                include_answer: true,
-            }),
+            body: JSON.stringify(tavilyBody),
         });
 
         if (!tavilyRes.ok) {
@@ -57,27 +76,35 @@ module.exports = async (req, res) => {
 
         // 2. Build prompt for Claude
         const resourcePreference =
-            filter === 'podcast' ? 'a podcast episode (look for Spotify, podcast URLs, or episode titles)' :
-            filter === 'video'   ? 'a YouTube video or video tutorial' :
-            filter === 'article' ? 'a written article, blog post, or guide' :
-            'the single best resource regardless of type (podcast, video, or article)';
+            filter === 'podcast' ? 'a podcast episode from a well-known show' :
+            filter === 'video'   ? 'a YouTube video from an established, recognized channel' :
+            filter === 'article' ? 'a written article from a high-authority publication or recognized expert' :
+            'the single best resource regardless of type — prioritize authority and relevance over recency';
+
+        const sourceQualityGuidance = `
+SOURCE QUALITY — this is critical: only recommend resources from established, recognized, high-authority sources.
+- Podcasts: prefer top-rated shows like How I Built This, My First Million, The Tim Ferriss Show, Founders (David Senra), The Knowledge Project, Acquired, Invest Like the Best, Masters of Scale, WorkLife with Adam Grant, or other widely respected business/creativity podcasts. Avoid obscure shows with small audiences.
+- YouTube: prefer channels with large established audiences and clear domain expertise — Ali Abdaal, Marques Brownlee, Y Combinator, Lex Fridman, Patrick Boyle, Roberto Blake, Peter McKinnon, or other recognized experts in their field. Avoid random uploads from small/unknown creators.
+- Articles: prefer Harvard Business Review, Inc., Fast Company, Entrepreneur, First Round Review, Paul Graham (paulgraham.com), Seth Godin, Ryan Holiday, a16z, Andreessen Horowitz blog, or other recognized domain experts and major publications. Avoid SEO content farms, AI-generated articles, and low-authority blogs.
+If none of the search results meet this bar, pick the best available but still note this clearly in the relevance field.`;
 
         const systemPrompt = `You are ArcForge AI, a sharp assistant for a creative entrepreneur.
 ${masterPrompt ? `\nUser's personal context:\n${masterPrompt}\n` : ''}
-The user is a video editor building a creative agency. They have limited time and think practically. Give them direct, useful information — no fluff or jargon.
+The user is building a creative business. They have limited time and think practically. Give them direct, useful information — no fluff or jargon. Frame the summary around what's actionable for them specifically.
 
 You will receive a topic and real web search results. Return ONLY a valid JSON object with this exact structure — no markdown fences, no other text:
 {
-  "summary": "3-4 sentences in plain language, framed around what this means for a video editor / agency builder with limited time",
+  "summary": "3-4 sentences in plain language, focused on what's most useful and actionable for this person",
   "resource": {
     "title": "exact title of the resource",
-    "source": "source name, e.g. 'How I Built This · Spotify' or 'YouTube' or 'Harvard Business Review'",
-    "relevance": "one sentence explaining why this specific resource is worth their time",
-    "url": "the exact URL from the search results"
+    "source": "source name, e.g. 'How I Built This · Spotify' or 'Ali Abdaal · YouTube' or 'Harvard Business Review'",
+    "relevance": "one sentence on why this specific resource from this specific source is worth their time",
+    "url": "the exact URL from the search results — never invent a URL"
   }
 }
+${sourceQualityGuidance}
 
-For the resource, prefer ${resourcePreference}. Pick only ONE best resource. The URL must come from the search results provided — do not invent URLs.`;
+For the resource, prefer ${resourcePreference}. Pick only ONE best resource.`;
 
         const userMessage = `Topic: "${topic}"
 
