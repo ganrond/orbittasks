@@ -78,9 +78,23 @@
                 <button id="nav-checkin-btn" class="history-nav-btn checkin-nav-btn"><i class="fa-solid fa-sun"></i> Daily Check-In</button>
                 <button id="nav-streaks-btn" class="history-nav-btn streaks-nav-btn"><i class="fa-solid fa-fire"></i> Streaks</button>
                 <button id="nav-weekly-btn" class="history-nav-btn weekly-nav-btn"><i class="fa-solid fa-calendar-week"></i> Weekly Planning</button>
+                <button id="nav-goals-btn" class="history-nav-btn goals-nav-btn"><i class="fa-solid fa-bullseye"></i> Goals</button>
+                <button id="nav-pipeline-btn" class="history-nav-btn pipeline-nav-btn"><i class="fa-solid fa-briefcase"></i> Pipeline</button>
                 <button id="nav-shelf-btn" class="history-nav-btn shelf-nav-btn"><i class="fa-solid fa-book-open"></i> Shelf</button>
                 <button id="nav-history-btn" class="history-nav-btn"><i class="fa-solid fa-clock-rotate-left"></i> View History</button>
                 <button id="sidebar-profile-btn" class="history-nav-btn"><i class="fa-solid fa-id-card"></i> My Profile</button>
+            </div>
+
+            <!-- Time Budget Widget -->
+            <div class="build-budget-widget">
+                <div class="build-budget-label">
+                    <i class="fa-solid fa-hourglass-half"></i>
+                    <span>Build time this week</span>
+                </div>
+                <div class="build-budget-bar-wrap">
+                    <div class="build-budget-bar" id="build-budget-bar"></div>
+                </div>
+                <div class="build-budget-stats" id="build-budget-stats">0h / 15h</div>
             </div>
         </aside>
 
@@ -436,7 +450,71 @@
                     </div>
                 </div>
             </div> <!-- End shelf-view -->
+
+            <!-- Goals View -->
+            <div id="goals-view" class="hidden">
+                <header class="app-header goals-header">
+                    <div class="header-title">
+                        <h1><i class="fa-solid fa-bullseye"></i> Goals</h1>
+                        <p id="goals-summary-text">Your three big bets.</p>
+                    </div>
+                    <div class="header-controls">
+                        <button id="goals-back-btn" class="text-btn outline back-btn">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                    </div>
+                </header>
+                <div class="goals-body" id="goals-body"></div>
+            </div>
+
+            <!-- Pipeline View -->
+            <div id="pipeline-view" class="hidden">
+                <header class="app-header pipeline-header">
+                    <div class="header-title">
+                        <h1><i class="fa-solid fa-briefcase"></i> Pipeline</h1>
+                        <p id="pipeline-summary-text">Your client pipeline.</p>
+                    </div>
+                    <div class="header-controls">
+                        <button id="add-client-btn" class="add-habit-btn" title="Add client" style="margin-right:.5rem">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                        <button id="pipeline-back-btn" class="text-btn outline back-btn">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                    </div>
+                </header>
+                <div class="pipeline-body" id="pipeline-body"></div>
+            </div>
         </main>
+    </div>
+
+    <!-- Add Client Overlay -->
+    <div id="add-client-overlay" class="add-book-overlay hidden" role="dialog" aria-modal="true" aria-label="Add Client">
+        <div class="add-book-card">
+            <div class="add-book-header">
+                <span>Add Client</span>
+                <button id="close-client-modal-btn" class="icon-btn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="shelf-form-fields">
+                <label class="shelf-form-label">Client Name</label>
+                <input type="text" id="client-name-input" class="shelf-form-input" placeholder="e.g. Jordan Matter">
+                <label class="shelf-form-label">Project / Description</label>
+                <input type="text" id="client-project-input" class="shelf-form-input" placeholder="e.g. Monthly editing retainer">
+                <label class="shelf-form-label">Value (USD)</label>
+                <input type="number" id="client-value-input" class="shelf-form-input" placeholder="6000" min="0">
+                <label class="shelf-form-label">Status</label>
+                <select id="client-status-input" class="shelf-form-input shelf-form-select">
+                    <option value="pitching">Pitching</option>
+                    <option value="active">Active</option>
+                    <option value="delivered">Delivered</option>
+                    <option value="paid">Paid</option>
+                </select>
+            </div>
+            <div class="shelf-form-actions">
+                <button id="save-client-btn" class="btn primary-btn">Add Client</button>
+                <button id="cancel-client-btn" class="text-btn">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <!-- Add Book Overlay -->
@@ -671,6 +749,7 @@
                     <button class="ai-starter-btn" data-prompt="What tasks have I been spending the most time on?">Where is my time going?</button>
                     <button class="ai-starter-btn" data-prompt="Give me a summary of my week. Look at my completed tasks and tell me: (1) what I accomplished, (2) any patterns in where I spent time, and (3) 2-3 clear priorities I should carry into next week.">Week in review</button>
                     <button class="ai-starter-btn" data-prompt="Look at all my pending tasks and clean them up: mark any that are clearly done as complete, delete any that are obviously redundant or outdated, and suggest due dates for any high-priority tasks missing them. Show me what you plan to do before applying.">Clean up my tasks</button>
+                    <button class="ai-starter-btn ai-starter-featured" data-prompt="I want you to be brutally honest with me. Look at my tasks, goals, and pipeline — specifically call out anything I've been sitting on too long, anything I'm avoiding, and anything I'm overthinking instead of shipping. Don't be soft about it.">🚀 Am I holding back?</button>
                 </div>
             </div>
         </div>

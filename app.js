@@ -118,11 +118,13 @@ const sortSelect = document.getElementById('sort-select');
 const emptyState = document.getElementById('empty-state');
 
 // History View Elements
-const workspaceView = document.getElementById('workspace-view');
-const historyView   = document.getElementById('history-view');
-const weeklyView    = document.getElementById('weekly-view');
-const streaksView   = document.getElementById('streaks-view');
-const shelfView     = document.getElementById('shelf-view');
+const workspaceView  = document.getElementById('workspace-view');
+const historyView    = document.getElementById('history-view');
+const weeklyView     = document.getElementById('weekly-view');
+const streaksView    = document.getElementById('streaks-view');
+const shelfView      = document.getElementById('shelf-view');
+const goalsView      = document.getElementById('goals-view');
+const pipelineView   = document.getElementById('pipeline-view');
 const navHistoryBtn = document.getElementById('nav-history-btn');
 const backToWorkspaceBtn = document.getElementById('back-to-workspace-btn');
 const historySearch = document.getElementById('history-search');
@@ -698,6 +700,14 @@ function bindEvents() {
     // Shelf
     const navShelfBtn = document.getElementById('nav-shelf-btn');
     if (navShelfBtn) navShelfBtn.addEventListener('click', showShelf);
+
+    // Goals
+    const navGoalsBtn = document.getElementById('nav-goals-btn');
+    if (navGoalsBtn) navGoalsBtn.addEventListener('click', showGoals);
+
+    // Pipeline
+    const navPipelineBtn = document.getElementById('nav-pipeline-btn');
+    if (navPipelineBtn) navPipelineBtn.addEventListener('click', showPipeline);
 
     // Weekly planning
     const navWeeklyBtn = document.getElementById('nav-weekly-btn');
@@ -1887,11 +1897,15 @@ function restartTimer() {
 }
 
 function stopTimer() {
+    const sessionDuration = pomodoroDuration - timeRemaining;
+    if (activeTimerTaskId) logTimerSession(activeTimerTaskId, sessionDuration);
+
     clearInterval(timerInterval);
     activeTimerTaskId = null;
     timerInterval = null;
     saveAll();
 
+    updateBudgetWidget();
     globalTimerEl.classList.add('hidden');
     renderTasks();
 }
@@ -1986,7 +2000,7 @@ function exportData() {
 }
 
 // --- View switching — one function hides everything, then shows target ---
-const ALL_VIEWS = () => [workspaceView, historyView, weeklyView, streaksView, shelfView].filter(Boolean);
+const ALL_VIEWS = () => [workspaceView, historyView, weeklyView, streaksView, shelfView, goalsView, pipelineView].filter(Boolean);
 
 function switchToView(target) {
     ALL_VIEWS().forEach(v => {
@@ -2082,6 +2096,423 @@ function submitCheckIn(skipped = false) {
     if (!skipped && topTask) {
         showToast(`Set "${topTask}" as your #1 focus today.`, 'success', 4000);
     }
+}
+
+// ================================================================
+// GOALS
+// ================================================================
+
+let goals = [];
+
+const GOAL_DEFAULTS = [
+    {
+        id: 'g-agency', name: 'Creative Direction Agency', target: '$300K / year',
+        color: 'goal-agency',
+        milestones: [
+            { id: 'mg-a1', text: 'Land first client', done: false },
+            { id: 'mg-a2', text: 'Hire first editor', done: false },
+            { id: 'mg-a3', text: 'Build full team', done: false },
+            { id: 'mg-a4', text: 'Reach $100K revenue', done: false },
+            { id: 'mg-a5', text: 'Reach $300K revenue', done: false },
+        ],
+        createdAt: new Date().toISOString(),
+    },
+    {
+        id: 'g-youtube', name: 'Brazilian YouTube Channel', target: 'Impact lives in Brazil',
+        color: 'goal-youtube',
+        milestones: [
+            { id: 'mg-y1', text: 'Post first video', done: false },
+            { id: 'mg-y2', text: 'Reach 10K subscribers', done: false },
+            { id: 'mg-y3', text: 'Reach 100K subscribers', done: false },
+            { id: 'mg-y4', text: 'Fund first Brazil project', done: false },
+        ],
+        createdAt: new Date().toISOString(),
+    },
+    {
+        id: 'g-saas', name: 'SaaS for Video Editors', target: 'Validate & launch',
+        color: 'goal-saas',
+        milestones: [
+            { id: 'mg-s1', text: 'Define core pain point', done: false },
+            { id: 'mg-s2', text: 'Interview 10 editors', done: false },
+            { id: 'mg-s3', text: 'Build MVP', done: false },
+            { id: 'mg-s4', text: 'First paying user', done: false },
+        ],
+        createdAt: new Date().toISOString(),
+    },
+];
+
+function loadGoals() {
+    try {
+        const g = JSON.parse(localStorage.getItem('arcforgeGoals') || 'null');
+        if (Array.isArray(g) && g.length > 0) { goals = g; return; }
+    } catch(e) {}
+    goals = JSON.parse(JSON.stringify(GOAL_DEFAULTS)); // seed with defaults
+    saveGoals();
+}
+
+function saveGoals() {
+    localStorage.setItem('arcforgeGoals', JSON.stringify(goals));
+    if (dbEnabled) dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
+}
+
+async function syncGoalsFromCloud() {
+    if (!dbEnabled) return;
+    try {
+        const str = await dbLoadSetting('arcforgeGoals');
+        if (!str) return;
+        const g = JSON.parse(str);
+        if (Array.isArray(g) && g.length > 0) {
+            goals = g;
+            localStorage.setItem('arcforgeGoals', str);
+        }
+    } catch(e) {}
+}
+
+function showGoals() {
+    switchToView(goalsView);
+    closeSidebar();
+    renderGoals();
+}
+
+function renderGoals() {
+    const bodyEl   = document.getElementById('goals-body');
+    const summaryEl = document.getElementById('goals-summary-text');
+    if (!bodyEl) return;
+
+    const totalMilestones = goals.reduce((s, g) => s + g.milestones.length, 0);
+    const doneMilestones  = goals.reduce((s, g) => s + g.milestones.filter(m => m.done).length, 0);
+    if (summaryEl) summaryEl.textContent = `${doneMilestones} of ${totalMilestones} milestones complete`;
+
+    bodyEl.innerHTML = goals.map(goal => {
+        const done  = goal.milestones.filter(m => m.done).length;
+        const total = goal.milestones.length;
+        const pct   = total > 0 ? Math.round((done / total) * 100) : 0;
+        return `
+        <div class="goal-card ${goal.color || ''}">
+            <div class="goal-card-header">
+                <div class="goal-card-title-wrap">
+                    <span class="goal-card-name">${goal.name}</span>
+                    <span class="goal-card-target">${goal.target}</span>
+                </div>
+                <div class="goal-progress-wrap">
+                    <div class="goal-progress-bar-bg">
+                        <div class="goal-progress-bar-fill" style="width:${pct}%"></div>
+                    </div>
+                    <span class="goal-progress-label">${pct}%</span>
+                </div>
+            </div>
+            <ul class="goal-milestones">
+                ${goal.milestones.map(m => `
+                <li class="goal-milestone${m.done ? ' done' : ''}" data-goal="${goal.id}" data-m="${m.id}">
+                    <label class="habit-checkbox-wrap" style="width:20px;height:20px">
+                        <input type="checkbox" class="habit-checkbox milestone-cb" ${m.done ? 'checked' : ''} data-goal="${goal.id}" data-m="${m.id}">
+                        <div class="habit-custom-checkbox"><i class="fa-solid fa-check"></i></div>
+                    </label>
+                    <span class="goal-milestone-text">${m.text}</span>
+                </li>`).join('')}
+            </ul>
+            <div class="goal-add-milestone">
+                <input type="text" class="milestone-new-input" placeholder="Add milestone…" data-goal="${goal.id}" maxlength="80">
+                <button class="milestone-add-btn" data-goal="${goal.id}"><i class="fa-solid fa-plus"></i></button>
+            </div>
+        </div>`;
+    }).join('');
+
+    // Milestone checkbox toggle
+    bodyEl.querySelectorAll('.milestone-cb').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const g = goals.find(g => g.id === cb.dataset.goal);
+            const m = g?.milestones.find(m => m.id === cb.dataset.m);
+            if (m) { m.done = cb.checked; saveGoals(); renderGoals(); }
+        });
+    });
+
+    // Add milestone
+    bodyEl.querySelectorAll('.milestone-add-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const goalId = btn.dataset.goal;
+            const input  = bodyEl.querySelector(`.milestone-new-input[data-goal="${goalId}"]`);
+            const text   = (input?.value || '').trim();
+            if (!text) return;
+            const g = goals.find(g => g.id === goalId);
+            if (g) {
+                g.milestones.push({ id: `mg-${Date.now()}`, text, done: false });
+                saveGoals();
+                renderGoals();
+            }
+        });
+    });
+    bodyEl.querySelectorAll('.milestone-new-input').forEach(input => {
+        input.addEventListener('keydown', e => {
+            if (e.key === 'Enter') {
+                bodyEl.querySelector(`.milestone-add-btn[data-goal="${input.dataset.goal}"]`)?.click();
+            }
+        });
+    });
+
+    // Back button
+    document.getElementById('goals-back-btn')?.addEventListener('click', showWorkspace);
+}
+
+function getGoalsContext() {
+    if (!goals.length) return '';
+    let text = '\n## Goals & milestones\n';
+    goals.forEach(g => {
+        const done = g.milestones.filter(m => m.done).length;
+        text += `\n### ${g.name} (target: ${g.target}) — ${done}/${g.milestones.length} milestones\n`;
+        g.milestones.forEach(m => { text += `- [${m.done ? 'x' : ' '}] ${m.text}\n`; });
+    });
+    return text;
+}
+
+loadGoals();
+syncGoalsFromCloud();
+
+// ================================================================
+// CLIENT PIPELINE
+// ================================================================
+
+let clients = [];
+
+const PIPELINE_STATUSES = {
+    pitching:  { label: 'Pitching',   color: 'status-pitching' },
+    active:    { label: 'Active',     color: 'status-active' },
+    delivered: { label: 'Delivered',  color: 'status-delivered' },
+    paid:      { label: 'Paid',       color: 'status-paid' },
+};
+
+function loadClients() {
+    try {
+        const c = JSON.parse(localStorage.getItem('arcforgeClients') || '[]');
+        if (Array.isArray(c)) clients = c;
+    } catch(e) {}
+}
+
+function saveClients() {
+    localStorage.setItem('arcforgeClients', JSON.stringify(clients));
+    if (dbEnabled) dbSaveSetting('arcforgeClients', JSON.stringify(clients));
+}
+
+async function syncClientsFromCloud() {
+    if (!dbEnabled) return;
+    try {
+        const str = await dbLoadSetting('arcforgeClients');
+        if (!str) return;
+        const c = JSON.parse(str);
+        if (Array.isArray(c) && c.length >= clients.length) {
+            clients = c;
+            localStorage.setItem('arcforgeClients', str);
+        }
+    } catch(e) {}
+}
+
+function showPipeline() {
+    switchToView(pipelineView);
+    closeSidebar();
+    renderPipeline();
+}
+
+function renderPipeline() {
+    const bodyEl    = document.getElementById('pipeline-body');
+    const summaryEl = document.getElementById('pipeline-summary-text');
+    if (!bodyEl) return;
+
+    const totalValue    = clients.reduce((s, c) => s + (Number(c.value) || 0), 0);
+    const activeValue   = clients.filter(c => c.status === 'active').reduce((s, c) => s + (Number(c.value) || 0), 0);
+    const pendingValue  = clients.filter(c => ['pitching','active','delivered'].includes(c.status)).reduce((s, c) => s + (Number(c.value) || 0), 0);
+    if (summaryEl) {
+        summaryEl.textContent = clients.length
+            ? `$${pendingValue.toLocaleString()} pending · $${clients.filter(c=>c.status==='paid').reduce((s,c)=>s+(Number(c.value)||0),0).toLocaleString()} collected`
+            : 'Track your client work and revenue.';
+    }
+
+    if (!clients.length) {
+        bodyEl.innerHTML = `<div class="streaks-empty"><i class="fa-solid fa-briefcase"></i><p>No clients yet. Hit <strong>+</strong> to add one.</p></div>`;
+        return;
+    }
+
+    const order = ['active','pitching','delivered','paid'];
+    let html = '';
+    order.forEach(status => {
+        const group = clients.filter(c => c.status === status);
+        if (!group.length) return;
+        const { label, color } = PIPELINE_STATUSES[status];
+        const groupValue = group.reduce((s, c) => s + (Number(c.value) || 0), 0);
+        html += `
+        <div class="pipeline-group">
+            <div class="pipeline-group-header">
+                <span class="pipeline-status-badge ${color}">${label}</span>
+                <span class="pipeline-group-value">$${groupValue.toLocaleString()}</span>
+            </div>
+            ${group.map(c => `
+            <div class="pipeline-card" data-id="${c.id}">
+                <div class="pipeline-card-main">
+                    <div class="pipeline-card-info">
+                        <span class="pipeline-client-name">${c.name}</span>
+                        ${c.project ? `<span class="pipeline-project">${c.project}</span>` : ''}
+                        ${c.notes ? `<span class="pipeline-notes">${c.notes}</span>` : ''}
+                    </div>
+                    <div class="pipeline-card-right">
+                        <span class="pipeline-value">$${(Number(c.value)||0).toLocaleString()}</span>
+                        <select class="book-status-select pipeline-status-select" data-id="${c.id}">
+                            ${order.map(s => `<option value="${s}" ${c.status===s?'selected':''}>${PIPELINE_STATUSES[s].label}</option>`).join('')}
+                        </select>
+                        <button class="book-delete-btn pipeline-delete-btn" data-id="${c.id}" title="Remove"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            </div>`).join('')}
+        </div>`;
+    });
+    bodyEl.innerHTML = html;
+
+    bodyEl.querySelectorAll('.pipeline-status-select').forEach(sel => {
+        sel.addEventListener('change', () => {
+            const client = clients.find(c => c.id === sel.dataset.id);
+            if (client) { client.status = sel.value; saveClients(); renderPipeline(); }
+        });
+    });
+    bodyEl.querySelectorAll('.pipeline-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!confirm('Remove this client?')) return;
+            clients = clients.filter(c => c.id !== btn.dataset.id);
+            saveClients(); renderPipeline();
+        });
+    });
+    document.getElementById('pipeline-back-btn')?.addEventListener('click', showWorkspace);
+}
+
+function initPipeline() {
+    loadClients();
+    syncClientsFromCloud();
+
+    const overlay     = document.getElementById('add-client-overlay');
+    const addBtn      = document.getElementById('add-client-btn');
+    const closeBtn    = document.getElementById('close-client-modal-btn');
+    const cancelBtn   = document.getElementById('cancel-client-btn');
+    const saveBtn     = document.getElementById('save-client-btn');
+    const nameInput   = document.getElementById('client-name-input');
+    const projInput   = document.getElementById('client-project-input');
+    const valueInput  = document.getElementById('client-value-input');
+    const statusInput = document.getElementById('client-status-input');
+
+    function openModal()  { overlay?.classList.remove('hidden'); nameInput?.focus(); }
+    function closeModal() {
+        overlay?.classList.add('hidden');
+        if (nameInput)   nameInput.value  = '';
+        if (projInput)   projInput.value  = '';
+        if (valueInput)  valueInput.value = '';
+        if (statusInput) statusInput.selectedIndex = 0;
+    }
+
+    addBtn?.addEventListener('click', openModal);
+    closeBtn?.addEventListener('click', closeModal);
+    cancelBtn?.addEventListener('click', closeModal);
+    overlay?.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+    saveBtn?.addEventListener('click', () => {
+        const name = (nameInput?.value || '').trim();
+        if (!name) { nameInput?.focus(); return; }
+        clients.push({
+            id: `cl-${Date.now()}`,
+            name,
+            project: (projInput?.value || '').trim(),
+            value:   Number(valueInput?.value) || 0,
+            status:  statusInput?.value || 'active',
+            notes:   '',
+            createdAt: new Date().toISOString(),
+        });
+        saveClients();
+        closeModal();
+        renderPipeline();
+    });
+}
+
+function getPipelineContext() {
+    if (!clients.length) return '';
+    const totalValue   = clients.reduce((s, c) => s + (Number(c.value) || 0), 0);
+    const active       = clients.filter(c => c.status === 'active');
+    const pitching     = clients.filter(c => c.status === 'pitching');
+    const unpaid       = clients.filter(c => ['active','delivered'].includes(c.status));
+    let text = '\n## Client pipeline\n';
+    text += `Total pipeline value: $${totalValue.toLocaleString()}\n`;
+    if (active.length)   text += `Active: ${active.map(c => `${c.name} ($${(Number(c.value)||0).toLocaleString()})`).join(', ')}\n`;
+    if (pitching.length) text += `Pitching: ${pitching.map(c => c.name).join(', ')}\n`;
+    if (unpaid.length)   text += `Awaiting payment: ${unpaid.map(c => `${c.name} ($${(Number(c.value)||0).toLocaleString()})`).join(', ')}\n`;
+    return text;
+}
+
+initPipeline();
+
+// ================================================================
+// TIME BUDGET — session logging + weekly widget
+// ================================================================
+
+const BUILD_HOURS_GOAL = 15; // hours per week
+
+function logTimerSession(taskId, durationSeconds) {
+    if (durationSeconds < 10) return;
+    try {
+        const sessions = JSON.parse(localStorage.getItem('arcforgeTimeSessions') || '[]');
+        sessions.push({ taskId, duration: durationSeconds, date: todayStr() });
+        // Keep only last 90 days
+        const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
+        const cutoffStr = [cutoff.getFullYear(), String(cutoff.getMonth()+1).padStart(2,'0'), String(cutoff.getDate()).padStart(2,'0')].join('-');
+        localStorage.setItem('arcforgeTimeSessions', JSON.stringify(sessions.filter(s => s.date >= cutoffStr)));
+    } catch(e) {}
+}
+
+function getWeeklyTrackedSeconds() {
+    try {
+        const sessions = JSON.parse(localStorage.getItem('arcforgeTimeSessions') || '[]');
+        const today = new Date();
+        const dow = today.getDay(); // 0=Sun
+        const daysFromMon = dow === 0 ? 6 : dow - 1;
+        const mon = new Date(today); mon.setDate(today.getDate() - daysFromMon);
+        const monStr = [mon.getFullYear(), String(mon.getMonth()+1).padStart(2,'0'), String(mon.getDate()).padStart(2,'0')].join('-');
+        return sessions.filter(s => s.date >= monStr).reduce((sum, s) => sum + s.duration, 0);
+    } catch(e) { return 0; }
+}
+
+function updateBudgetWidget() {
+    const statsEl = document.getElementById('build-budget-stats');
+    const barEl   = document.getElementById('build-budget-bar');
+    if (!statsEl || !barEl) return;
+    const totalSecs  = getWeeklyTrackedSeconds();
+    const totalHours = totalSecs / 3600;
+    const pct        = Math.min(100, Math.round((totalHours / BUILD_HOURS_GOAL) * 100));
+    const hDisplay   = totalHours >= 1 ? `${totalHours.toFixed(1)}h` : `${Math.round(totalSecs / 60)}m`;
+    statsEl.textContent = `${hDisplay} / ${BUILD_HOURS_GOAL}h`;
+    barEl.style.width   = `${pct}%`;
+    barEl.style.background = pct >= 100 ? 'var(--accent-success, #4ade80)' : 'var(--accent-primary)';
+}
+
+function getTimeBudgetContext() {
+    const secs  = getWeeklyTrackedSeconds();
+    const hours = (secs / 3600).toFixed(1);
+    return `\n## Build time budget\nWeekly goal: ${BUILD_HOURS_GOAL} hours. This week tracked: ${hours} hours. Remaining: ${Math.max(0, BUILD_HOURS_GOAL - Number(hours)).toFixed(1)} hours.\n`;
+}
+
+updateBudgetWidget();
+
+// ================================================================
+// SHIP IT — stale task detection
+// ================================================================
+
+function getStaleTasksContext() {
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 7);
+    const staleTasks = tasks.filter(t => {
+        if (t.completed || t.archived) return false;
+        const created = t.createdAt ? new Date(t.createdAt) : null;
+        return created && created < cutoff;
+    });
+    if (!staleTasks.length) return '';
+    let text = '\n## ⚠️ Stale tasks (pending > 7 days — possible perfectionism or avoidance)\n';
+    staleTasks.slice(0, 8).forEach(t => {
+        const days = Math.floor((Date.now() - new Date(t.createdAt)) / 86400000);
+        text += `- "${t.text}" (${days} days pending${t.priority === 'high' ? ', HIGH PRIORITY' : ''})\n`;
+    });
+    text += `\nIf any of these are YouTube or creative work, call it out directly — Bruno tends to hold back creative work waiting for it to be "perfect". Push him to ship.\n`;
+    return text;
 }
 
 // ================================================================
@@ -3593,9 +4024,13 @@ function initAI() {
             };
         });
 
-        const checkInCtx = getCheckInContext();
-        const streaksCtx = getStreaksContext();
-        const shelfCtx   = getShelfContext();
+        const checkInCtx  = getCheckInContext();
+        const streaksCtx  = getStreaksContext();
+        const shelfCtx    = getShelfContext();
+        const goalsCtx    = getGoalsContext();
+        const pipelineCtx = getPipelineContext();
+        const budgetCtx   = getTimeBudgetContext();
+        const staleCtx    = getStaleTasksContext();
 
         let system = `You are ArcForge AI, an intelligent productivity assistant embedded in ArcForge, a personal task manager.
 Today is ${now}.
@@ -3603,7 +4038,7 @@ Today is ${now}.
 ${mp ? `## About the user\n${mp}\n` : ''}
 ## Current workspace context
 ${JSON.stringify(projectContext, null, 2)}
-${checkInCtx}${streaksCtx}${shelfCtx}
+${checkInCtx}${streaksCtx}${shelfCtx}${goalsCtx}${pipelineCtx}${budgetCtx}${staleCtx}
 
 ## Instructions
 - Be concise, direct, and genuinely helpful.
