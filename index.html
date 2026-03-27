@@ -469,6 +469,12 @@
             </div>
         </div>
 
+        <!-- Mode toggle: Tasks | Explore -->
+        <div class="ai-mode-toggle">
+            <button class="ai-mode-btn active" data-mode="tasks">Tasks</button>
+            <button class="ai-mode-btn" data-mode="explore"><i class="fa-solid fa-compass"></i> Explore</button>
+        </div>
+
         <!-- My Profile settings (collapsed by default) -->
         <div id="ai-settings-panel" class="ai-settings-panel">
             <div class="mp-section-header">
@@ -519,6 +525,24 @@
                     <button id="mp-cancel-edit-btn" class="text-btn">Cancel</button>
                 </div>
             </div>
+        </div>
+
+        <!-- Explore mode (hidden by default) -->
+        <div id="ai-explore-mode" class="ai-explore-mode mode-hidden">
+            <div class="explore-input-section">
+                <div class="explore-filter-row">
+                    <button class="explore-filter-pill active" data-filter="all">All</button>
+                    <button class="explore-filter-pill" data-filter="podcast"><i class="fa-solid fa-podcast"></i> Podcast</button>
+                    <button class="explore-filter-pill" data-filter="video"><i class="fa-brands fa-youtube"></i> Video</button>
+                    <button class="explore-filter-pill" data-filter="article"><i class="fa-solid fa-newspaper"></i> Article</button>
+                </div>
+                <textarea id="explore-input" class="ai-input explore-textarea" placeholder="What do you want to learn about?" rows="2"></textarea>
+                <button id="explore-btn" class="btn primary-btn explore-btn">
+                    <i class="fa-solid fa-compass"></i> Explore
+                </button>
+                <div id="explore-recent" class="explore-recent"></div>
+            </div>
+            <div id="explore-results" class="explore-results"></div>
         </div>
 
         <!-- Messages -->

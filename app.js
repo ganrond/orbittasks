@@ -3860,4 +3860,149 @@ Structure your response:
             } catch(e) {}
         })();
     }
+
+    // ================================================================
+    // EXPLORE MODE
+    // ================================================================
+    const modeBtns       = document.querySelectorAll('.ai-mode-btn');
+    const exploreModeEl  = document.getElementById('ai-explore-mode');
+    const exploreInputEl = document.getElementById('explore-input');
+    const exploreBtnEl   = document.getElementById('explore-btn');
+    const exploreRecentEl= document.getElementById('explore-recent');
+    const exploreResultsEl = document.getElementById('explore-results');
+    const filterPills    = document.querySelectorAll('.explore-filter-pill');
+    const aiInputArea    = panel.querySelector('.ai-input-area');
+
+    if (!exploreModeEl || !exploreInputEl) return; // safety guard
+
+    let currentMode    = 'tasks';
+    let exploreFilter  = 'all';
+    let recentSearches = [];
+    try {
+        const saved = JSON.parse(localStorage.getItem('arcforgeExploreRecent') || '[]');
+        if (Array.isArray(saved)) recentSearches = saved;
+    } catch(e) {}
+
+    // Switch between Tasks and Explore modes
+    function setMode(mode) {
+        currentMode = mode;
+        modeBtns.forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
+        if (mode === 'explore') {
+            messagesEl.classList.add('mode-hidden');
+            if (aiInputArea) aiInputArea.classList.add('mode-hidden');
+            exploreModeEl.classList.remove('mode-hidden');
+            renderRecentSearches();
+            exploreInputEl.focus();
+        } else {
+            messagesEl.classList.remove('mode-hidden');
+            if (aiInputArea) aiInputArea.classList.remove('mode-hidden');
+            exploreModeEl.classList.add('mode-hidden');
+            inputEl.focus();
+        }
+    }
+
+    modeBtns.forEach(btn => btn.addEventListener('click', () => setMode(btn.dataset.mode)));
+
+    // Filter pill selection
+    filterPills.forEach(pill => {
+        pill.addEventListener('click', () => {
+            filterPills.forEach(p => p.classList.remove('active'));
+            pill.classList.add('active');
+            exploreFilter = pill.dataset.filter;
+        });
+    });
+
+    // Recent searches
+    function renderRecentSearches() {
+        if (!recentSearches.length) { exploreRecentEl.innerHTML = ''; return; }
+        exploreRecentEl.innerHTML = recentSearches.slice(0, 3).map(s =>
+            `<button class="explore-recent-chip" title="${s}">${s}</button>`
+        ).join('');
+        exploreRecentEl.querySelectorAll('.explore-recent-chip').forEach(chip => {
+            chip.addEventListener('click', () => {
+                exploreInputEl.value = chip.title;
+                doExplore();
+            });
+        });
+    }
+
+    function saveRecentSearch(topic) {
+        recentSearches = [topic, ...recentSearches.filter(s => s !== topic)].slice(0, 3);
+        localStorage.setItem('arcforgeExploreRecent', JSON.stringify(recentSearches));
+        renderRecentSearches();
+    }
+
+    // Main search function
+    async function doExplore() {
+        const topic = (exploreInputEl.value || '').trim();
+        if (!topic || exploreBtnEl.disabled) return;
+
+        exploreBtnEl.disabled = true;
+        exploreResultsEl.innerHTML = `
+            <div class="explore-loading">
+                <div class="explore-loading-dots">
+                    <span class="explore-loading-dot"></span>
+                    <span class="explore-loading-dot"></span>
+                    <span class="explore-loading-dot"></span>
+                </div>
+                <span>Searching for resources…</span>
+            </div>`;
+
+        const masterPrompt = localStorage.getItem('arcforgeMasterPrompt') || '';
+
+        try {
+            const res = await fetch('/api/explore', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ topic, filter: exploreFilter, masterPrompt }),
+            });
+
+            if (!res.ok) {
+                const err = await res.json().catch(() => ({}));
+                exploreResultsEl.innerHTML = `<p class="explore-error">${err.error || 'Something went wrong. Try again.'}</p>`;
+                return;
+            }
+
+            const data = await res.json();
+            saveRecentSearch(topic);
+            renderExploreResults(data);
+        } catch(err) {
+            exploreResultsEl.innerHTML = `<p class="explore-error">Connection error. Check your network and try again.</p>`;
+        } finally {
+            exploreBtnEl.disabled = false;
+        }
+    }
+
+    function renderExploreResults(data) {
+        const { summary, resource } = data;
+        let html = '';
+
+        if (summary) {
+            html += `
+                <div class="explore-summary-block">
+                    <div class="explore-section-label">Summary</div>
+                    <p class="explore-summary">${summary}</p>
+                </div>`;
+        }
+
+        if (resource && resource.url) {
+            html += `
+                <div class="explore-resource-card">
+                    <div class="explore-section-label">Best Resource</div>
+                    <div class="explore-resource-title">${resource.title || 'Resource'}</div>
+                    ${resource.source ? `<div class="explore-resource-source">${resource.source}</div>` : ''}
+                    ${resource.relevance ? `<div class="explore-resource-relevance">${resource.relevance}</div>` : ''}
+                    <a class="explore-resource-link" href="${resource.url}" target="_blank" rel="noopener noreferrer">
+                        <i class="fa-solid fa-arrow-up-right-from-square"></i> Open resource
+                    </a>
+                </div>`;
+        }
+
+        exploreResultsEl.innerHTML = html || '<p class="explore-error">No results found. Try rephrasing your topic.</p>';
+    }
+
+    exploreBtnEl.addEventListener('click', doExplore);
+    exploreInputEl.addEventListener('keydown', e => {
+        if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doExplore(); }
+    });
 }
