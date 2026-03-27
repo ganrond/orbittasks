@@ -1104,6 +1104,59 @@ body {
     .mobile-bottom-nav { height: 58px; }
     .bottom-nav-btn { font-size: 0.6rem; }
     .bottom-nav-btn i { font-size: 1rem; }
+
+    /* ── Page help button ── */
+    .page-help-btn { width: 20px; height: 20px; font-size: 0.68rem; }
+    .header-controls { gap: 0.35rem; }
+
+    /* ── Help modal — bottom sheet on mobile ── */
+    .help-modal { align-items: flex-end; }
+    .help-modal-card {
+        width: 100%; max-width: none;
+        padding: 1.1rem 1rem 1.4rem;
+        border-radius: 16px 16px 0 0;
+        max-height: 82dvh; overflow-y: auto;
+    }
+    .help-modal-body { font-size: 0.82rem; }
+    .help-modal-body .help-tip { font-size: 0.73rem; padding: 0.4rem 0.6rem; }
+
+    /* ── New views: let page scroll naturally on mobile ── */
+    #goals-view, #pipeline-view, #shelf-view, #streaks-view {
+        height: auto;
+        overflow: visible;
+        min-height: 60dvh;
+    }
+    .goals-body, .pipeline-body, .shelf-body, .streaks-body {
+        flex: none;
+        overflow-y: visible;
+        padding: 0.875rem 0;
+    }
+
+    /* ── Shelf toolbar: wrap tabs so "Want to Read" doesn't overflow ── */
+    .shelf-toolbar { flex-wrap: wrap; gap: 0.5rem; }
+    .shelf-toolbar .filter-tab-group { flex: 1; min-width: 0; }
+    .shelf-toolbar .filter-tab-group .filter-btn { padding: 0.22rem 0.55rem; font-size: 0.72rem; }
+
+    /* ── Add Book / Add Client modal — bottom sheet ── */
+    .add-book-overlay { align-items: flex-end; padding: 0; }
+    .add-book-card {
+        max-width: 100%; border-radius: 16px 16px 0 0;
+        padding: 1.1rem 1rem 1.5rem;
+        max-height: 88dvh; overflow-y: auto;
+    }
+    .shelf-form-input { padding: 0.5rem 0.65rem; font-size: 0.88rem; }
+
+    /* ── Goal cards ── */
+    .goal-card { padding: 0.9rem 0.95rem; }
+    .goal-card-header { gap: 0.5rem; }
+    .goal-progress-bar-bg { width: 72px; }
+    .goal-progress-label { font-size: 0.68rem; width: 26px; }
+
+    /* ── Pipeline cards ── */
+    .pipeline-card-main { flex-wrap: wrap; }
+    .pipeline-card-right { width: 100%; justify-content: space-between; margin-top: 0.35rem; }
+    .pipeline-delete-btn { opacity: 1; }
+
 }
 
 /* ---- Small phones (≤ 390px) ---- */
@@ -2121,6 +2174,7 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 .pipeline-notes   { font-size: 0.75rem; color: var(--text-sub); font-style: italic; }
 
 .pipeline-card-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+#add-client-btn { margin-right: 0.5rem; }
 .pipeline-value { font-size: 0.88rem; font-weight: 700; color: var(--accent-primary); font-family: 'JetBrains Mono', monospace; }
 .pipeline-status-select { font-size: 0.75rem; }
 .pipeline-delete-btn { opacity: 0; }
