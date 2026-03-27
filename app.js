@@ -4939,3 +4939,150 @@ Structure your response:
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doExplore(); }
     });
 }
+
+/* ============================================================
+   PAGE HELP MODAL
+   ============================================================ */
+(function initHelpModal() {
+    const HELP = {
+        workspace: {
+            icon: 'fa-solid fa-clipboard-list',
+            title: 'Workspace — Your Command Center',
+            body: `<p>This is where you manage everything day-to-day.</p>
+<ul>
+    <li><strong>Add tasks</strong> in the input bar — press Enter or click +</li>
+    <li><strong>Priority / Context / Energy</strong> labels appear when you click the input — use them to tag your tasks</li>
+    <li><strong>Focus timer</strong> — click the clock icon on any task to start a Pomodoro session</li>
+    <li><strong>Filter bar</strong> — switch between All / Pending / Done, or use the sliders for deep-work and energy filters</li>
+    <li><strong>AI button</strong> (bottom right) — ask ArcForge AI to prioritize, coach, or plan your day</li>
+</ul>
+<div class="help-tip">💡 Tip: Ask the AI "What should I focus on right now?" for a personalized recommendation.</div>`
+        },
+        history: {
+            icon: 'fa-solid fa-clock-rotate-left',
+            title: 'Activity History',
+            body: `<p>A log of every work session you've completed, organized by project.</p>
+<ul>
+    <li>See <strong>total time tracked</strong> per project at a glance</li>
+    <li>Drill into individual task sessions — when they started and how long they ran</li>
+    <li>Use <strong>Export</strong> to download a CSV of your history</li>
+</ul>
+<div class="help-tip">💡 Tip: Use this to spot which projects are getting the most (or least) of your time.</div>`
+        },
+        weekly: {
+            icon: 'fa-solid fa-calendar-week',
+            title: 'Weekly Planning',
+            body: `<p>A drag-and-drop tool to set your intention for the week ahead.</p>
+<ul>
+    <li><strong>Left panel</strong> — all your pending tasks across every project</li>
+    <li><strong>Right panel</strong> — drag tasks here to commit to them this week</li>
+    <li>Click <strong>Generate Summary</strong> to get a shareable week plan with AI commentary</li>
+    <li>Copy the plan to paste into Notion, Slack, or your notes</li>
+</ul>
+<div class="help-tip">💡 Tip: Do this every Sunday evening to start Monday with clarity.</div>`
+        },
+        streaks: {
+            icon: 'fa-solid fa-fire',
+            title: 'Streaks — Daily Habits',
+            body: `<p>Track the habits that keep you sharp — checked off each day to build your streak.</p>
+<ul>
+    <li>Hit <strong>+</strong> to add a new habit (gym, deep work block, reading, etc.)</li>
+    <li>Check off habits each day — the flame icon shows your current streak</li>
+    <li>Missing a day resets the streak — it's meant to sting a little</li>
+    <li>The AI knows your habit data and will call you out if you're slipping</li>
+</ul>
+<div class="help-tip">💡 Tip: Keep it to 3–5 habits max. More than that and none of them stick.</div>`
+        },
+        shelf: {
+            icon: 'fa-solid fa-book-open',
+            title: 'Shelf — Reading List',
+            body: `<p>Your personal library. Track what you're reading, what's next, and what you've finished.</p>
+<ul>
+    <li>Hit <strong>+</strong> to add a book with title, author, category, and status</li>
+    <li>Switch between <strong>Reading / Done / Want to Read</strong> tabs</li>
+    <li>Add a note to any finished book to capture your key takeaway</li>
+    <li>The AI can recommend your next read based on your goals and current shelf</li>
+</ul>
+<div class="help-tip">💡 Tip: Add a one-line note to every book you finish — future you will thank you.</div>`
+        },
+        goals: {
+            icon: 'fa-solid fa-bullseye',
+            title: 'Goals — Your 3 Big Bets',
+            body: `<p>Where you define what you're actually building. Not a to-do list — a north star.</p>
+<ul>
+    <li>Each goal has a <strong>name, description, and target date</strong></li>
+    <li>Add <strong>milestones</strong> to break each goal into checkpoints</li>
+    <li>Track <strong>% progress</strong> — update it manually as you move forward</li>
+    <li>The AI uses your goals to give you context-aware coaching across the whole app</li>
+</ul>
+<div class="help-tip">💡 Tip: Limit yourself to 3 goals. More than that means none of them are real priorities.</div>`
+        },
+        pipeline: {
+            icon: 'fa-solid fa-briefcase',
+            title: 'Pipeline — Client Tracker',
+            body: `<p>Track potential and active clients from first contact all the way to paid.</p>
+<ul>
+    <li>Hit <strong>+</strong> to add a client with name, project description, deal value, and status</li>
+    <li>Statuses: <strong>Pitching → Active → Delivered → Paid</strong></li>
+    <li>The header shows your total pipeline value and active revenue at a glance</li>
+    <li>The AI knows your pipeline and can help you think through next steps</li>
+</ul>
+<div class="help-tip">💡 Tip: Update statuses regularly — seeing money move through stages is motivating.</div>`
+        },
+    };
+
+    const modal    = document.getElementById('help-modal');
+    const titleEl  = document.getElementById('help-modal-title');
+    const bodyEl   = document.getElementById('help-modal-body');
+    const closeBtn = document.getElementById('close-help-modal');
+
+    function openHelp(page) {
+        const data = HELP[page];
+        if (!data) return;
+        titleEl.innerHTML = `<i class="${data.icon}"></i> ${data.title}`;
+        bodyEl.innerHTML = data.body;
+        modal.classList.remove('hidden');
+    }
+
+    document.querySelectorAll('.page-help-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            openHelp(btn.dataset.helpPage);
+        });
+    });
+
+    closeBtn.addEventListener('click', () => modal.classList.add('hidden'));
+    modal.addEventListener('click', e => {
+        if (e.target === modal) modal.classList.add('hidden');
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') modal.classList.add('hidden');
+    });
+})();
+
+/* ============================================================
+   COMPOSER TOOLBAR — show on input focus, hide when empty+blur
+   ============================================================ */
+(function initComposerCollapse() {
+    const priorityRow = document.getElementById('priority-row');
+    if (!taskInput || !priorityRow) return;
+
+    function openComposer() {
+        priorityRow.classList.add('composer-open');
+    }
+    function tryCloseComposer() {
+        const inputHasFocus   = document.activeElement === taskInput;
+        const toolbarHasFocus = priorityRow.contains(document.activeElement);
+        const inputHasText    = taskInput.value.trim() !== '';
+        if (!inputHasFocus && !toolbarHasFocus && !inputHasText) {
+            priorityRow.classList.remove('composer-open');
+        }
+    }
+
+    taskInput.addEventListener('focus', openComposer);
+    taskInput.addEventListener('blur', () => setTimeout(tryCloseComposer, 200));
+
+    // Also open when the toolbar itself is focused (buttons inside it)
+    priorityRow.addEventListener('focusin', openComposer);
+    priorityRow.addEventListener('focusout', () => setTimeout(tryCloseComposer, 200));
+})();

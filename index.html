@@ -106,6 +106,7 @@
                     <p>Organize your universe.</p>
                 </div>
                 <div class="header-controls">
+                    <button class="page-help-btn" data-help-page="workspace" title="How this works">?</button>
                     <div class="theme-picker">
                         <button id="theme-toggle-btn" class="icon-btn" title="Color Scheme">
                             <i class="fa-solid fa-palette"></i>
@@ -299,6 +300,7 @@
                         <p>Total time breakdown by project.</p>
                     </div>
                     <div class="header-controls">
+                        <button class="page-help-btn" data-help-page="history" title="How this works">?</button>
                         <button id="export-btn" class="text-btn outline">
                             <i class="fa-solid fa-download"></i> <span class="action-text">Export</span>
                         </button>
@@ -326,6 +328,7 @@
                         <p>Drag tasks into your focus list, then copy your plan.</p>
                     </div>
                     <div class="header-controls">
+                        <button class="page-help-btn" data-help-page="weekly" title="How this works">?</button>
                         <button id="wp-back-btn" class="text-btn outline back-btn">
                             <i class="fa-solid fa-arrow-left"></i> Back
                         </button>
@@ -384,6 +387,7 @@
                         <p id="streaks-progress-text">Build your daily habits.</p>
                     </div>
                     <div class="header-controls">
+                        <button class="page-help-btn" data-help-page="streaks" title="How this works">?</button>
                         <button id="streaks-back-btn" class="text-btn outline back-btn">
                             <i class="fa-solid fa-arrow-left"></i> Back
                         </button>
@@ -424,6 +428,7 @@
                         <p id="shelf-count-text">Your personal reading list.</p>
                     </div>
                     <div class="header-controls">
+                        <button class="page-help-btn" data-help-page="shelf" title="How this works">?</button>
                         <button id="shelf-back-btn" class="text-btn outline back-btn">
                             <i class="fa-solid fa-arrow-left"></i> Back
                         </button>
@@ -459,6 +464,7 @@
                         <p id="goals-summary-text">Your three big bets.</p>
                     </div>
                     <div class="header-controls">
+                        <button class="page-help-btn" data-help-page="goals" title="How this works">?</button>
                         <button id="goals-back-btn" class="text-btn outline back-btn">
                             <i class="fa-solid fa-arrow-left"></i> Back
                         </button>
@@ -475,6 +481,7 @@
                         <p id="pipeline-summary-text">Your client pipeline.</p>
                     </div>
                     <div class="header-controls">
+                        <button class="page-help-btn" data-help-page="pipeline" title="How this works">?</button>
                         <button id="add-client-btn" class="add-habit-btn" title="Add client" style="margin-right:.5rem">
                             <i class="fa-solid fa-plus"></i>
                         </button>
@@ -785,5 +792,16 @@
         });
       }
     </script>
+
+    <!-- Page Help Modal -->
+    <div id="help-modal" class="help-modal hidden" role="dialog" aria-modal="true" aria-label="Page Help">
+        <div class="help-modal-card">
+            <div class="help-modal-header">
+                <span id="help-modal-title" class="help-modal-title"></span>
+                <button id="close-help-modal" class="icon-btn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="help-modal-body" class="help-modal-body"></div>
+        </div>
+    </div>
 </body>
 </html>
