@@ -1,4 +1,4 @@
-const CACHE_NAME = 'arcforge-v5';
+const CACHE_NAME = 'arcforge-v6';
 const ASSETS = [
   '/',
   '/index.html',
