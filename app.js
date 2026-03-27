@@ -2146,8 +2146,8 @@ function loadGoals() {
         const g = JSON.parse(localStorage.getItem('arcforgeGoals') || 'null');
         if (Array.isArray(g) && g.length > 0) { goals = g; return; }
     } catch(e) {}
-    goals = JSON.parse(JSON.stringify(GOAL_DEFAULTS)); // seed with defaults
-    saveGoals();
+    goals = JSON.parse(JSON.stringify(GOAL_DEFAULTS));
+    localStorage.setItem('arcforgeGoals', JSON.stringify(goals)); // local only — don't overwrite cloud with defaults
 }
 
 function saveGoals() {
@@ -2159,11 +2159,16 @@ async function syncGoalsFromCloud() {
     if (!dbEnabled) return;
     try {
         const str = await dbLoadSetting('arcforgeGoals');
-        if (!str) return;
+        if (!str) {
+            // Nothing in cloud yet — push current state up so it's safe next time
+            dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
+            return;
+        }
         const g = JSON.parse(str);
         if (Array.isArray(g) && g.length > 0) {
             goals = g;
             localStorage.setItem('arcforgeGoals', str);
+            renderGoals();
         }
     } catch(e) {}
 }
@@ -2194,11 +2199,14 @@ function renderGoals() {
                     <span class="goal-card-name">${goal.name}</span>
                     <span class="goal-card-target">${goal.target}</span>
                 </div>
-                <div class="goal-progress-wrap">
-                    <div class="goal-progress-bar-bg">
-                        <div class="goal-progress-bar-fill" style="width:${pct}%"></div>
+                <div style="display:flex;align-items:center;gap:0.5rem">
+                    <div class="goal-progress-wrap">
+                        <div class="goal-progress-bar-bg">
+                            <div class="goal-progress-bar-fill" style="width:${pct}%"></div>
+                        </div>
+                        <span class="goal-progress-label">${pct}%</span>
                     </div>
-                    <span class="goal-progress-label">${pct}%</span>
+                    <button class="goal-delete-btn" data-goal="${goal.id}" title="Delete goal"><i class="fa-solid fa-trash"></i></button>
                 </div>
             </div>
             <ul class="goal-milestones">
@@ -2216,7 +2224,23 @@ function renderGoals() {
                 <button class="milestone-add-btn" data-goal="${goal.id}"><i class="fa-solid fa-plus"></i></button>
             </div>
         </div>`;
-    }).join('');
+    }).join('') + `
+    <div class="goal-card goal-add-card">
+        <span class="goal-add-card-label"><i class="fa-solid fa-plus"></i> New Goal</span>
+        <div class="goal-add-form">
+            <input type="text" id="new-goal-name" placeholder="Goal name…" maxlength="60">
+            <input type="text" id="new-goal-target" placeholder="Target (e.g. $100K / year)…" maxlength="60">
+            <div class="goal-color-picker">
+                <label title="Amber"><input type="radio" name="goal-color" value="goal-agency" checked><span class="goal-color-dot" style="background:#f59e0b"></span></label>
+                <label title="Red"><input type="radio" name="goal-color" value="goal-youtube"><span class="goal-color-dot" style="background:#ef4444"></span></label>
+                <label title="Purple"><input type="radio" name="goal-color" value="goal-saas"><span class="goal-color-dot" style="background:#818cf8"></span></label>
+                <label title="Green"><input type="radio" name="goal-color" value="goal-green"><span class="goal-color-dot" style="background:#22c55e"></span></label>
+                <label title="Blue"><input type="radio" name="goal-color" value="goal-blue"><span class="goal-color-dot" style="background:#38bdf8"></span></label>
+                <label title="Pink"><input type="radio" name="goal-color" value="goal-pink"><span class="goal-color-dot" style="background:#f472b6"></span></label>
+            </div>
+            <button id="add-goal-btn"><i class="fa-solid fa-check"></i> Add Goal</button>
+        </div>
+    </div>`;
 
     // Milestone checkbox toggle
     bodyEl.querySelectorAll('.milestone-cb').forEach(cb => {
@@ -2248,6 +2272,30 @@ function renderGoals() {
                 bodyEl.querySelector(`.milestone-add-btn[data-goal="${input.dataset.goal}"]`)?.click();
             }
         });
+    });
+
+    // Delete goal
+    bodyEl.querySelectorAll('.goal-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!confirm('Delete this goal and all its milestones?')) return;
+            goals = goals.filter(g => g.id !== btn.dataset.goal);
+            saveGoals();
+            renderGoals();
+        });
+    });
+
+    // Add new goal
+    bodyEl.querySelector('#add-goal-btn')?.addEventListener('click', () => {
+        const name   = bodyEl.querySelector('#new-goal-name')?.value.trim();
+        const target = bodyEl.querySelector('#new-goal-target')?.value.trim();
+        const color  = bodyEl.querySelector('input[name="goal-color"]:checked')?.value || 'goal-agency';
+        if (!name) return;
+        goals.push({ id: `g-${Date.now()}`, name, target: target || '', color, milestones: [], createdAt: new Date().toISOString() });
+        saveGoals();
+        renderGoals();
+    });
+    bodyEl.querySelector('#new-goal-name')?.addEventListener('keydown', e => {
+        if (e.key === 'Enter') bodyEl.querySelector('#add-goal-btn')?.click();
     });
 
     // Back button
@@ -2988,7 +3036,7 @@ function getStreaksContext() {
             if (!logs.includes(ds)) missed++;
             d.setDate(d.getDate() - 1);
         }
-        text += `- "${h.name}": streak ${streak} day${streak === 1 ? '' : 's'}, today ${doneToday ? '✅ done' : '❌ not done yet'}`;
+        text += `- id:"${h.id}" name:"${h.name}": streak ${streak} day${streak === 1 ? '' : 's'}, today ${doneToday ? '✅ done' : '❌ not done yet'}`;
         if (missed > 0 && missed < 7) text += `, missed ${missed}/7 days this week`;
         if (missed === 7) text += `, not completed at all this week`;
         text += '\n';
@@ -4066,6 +4114,9 @@ Each item in the array must have an "action" field. Supported actions:
 **"delete"** — permanently delete an existing task:
 {"action":"delete","id":"task-id"}
 
+**"completeHabit"** — mark a habit as done today (use the habit id from the streaks context above):
+{"action":"completeHabit","habitId":"habit-id","habitName":"habit name"}
+
 Rules:
 - Valid priorities: "high", "medium", "low", null
 - Valid contexts: "quick-win", "deep-work", null
@@ -4074,6 +4125,10 @@ Rules:
 - Use this for ANY task management request: adding, removing, rescheduling, completing tasks
 - When creating tasks, always use the correct projectId from the workspace context
 - Do NOT invent task IDs — only reference IDs that appear in the workspace context above
+- Do NOT invent habit IDs — only use IDs from the streaks context above
+
+## Habit scheduling — how to help
+When the user asks you to plan their day or find time for habits, look at the streaks context above for habits not yet done today. Suggest specific time blocks (e.g. "8:00–8:15 AM: morning run"). If the user confirms or asks you to log a habit, use the "completeHabit" action. Always check which habits are already done (✅) before suggesting — never suggest completing something already done.
 
 ## Notes field — how to use it
 The \`notes\` field is a plain-text area visible inside each task. Use it to store rich context that makes the task actionable:
@@ -4320,6 +4375,15 @@ You are a real personal assistant. Treat due dates like commitments.
                     recurring:    false,
                     recurringDay: null
                 });
+            } else if (u.action === 'completeHabit') {
+                const id = u.habitId;
+                if (id) {
+                    if (!habitLogs[id]) habitLogs[id] = [];
+                    const td = todayStr();
+                    if (!habitLogs[id].includes(td)) habitLogs[id].push(td);
+                    saveHabitsToStorage();
+                    renderStreaks();
+                }
             } else if (u.action === 'complete') {
                 const idx = tasks.findIndex(t => t.id === u.id);
                 if (idx !== -1) tasks[idx] = { ...tasks[idx], completed: true, completedAt: new Date().toISOString() };
@@ -4351,6 +4415,7 @@ You are a real personal assistant. Treat due dates like commitments.
     function showApplyCard(msgWrapper, updates) {
         const validUpdates = updates.filter(u => {
             if (u.action === 'create') return u.text && projects.find(p => !p.archived);
+            if (u.action === 'completeHabit') return u.habitId && habits.find(h => h.id === u.habitId);
             return tasks.find(t => t.id === u.id);
         });
         if (!validUpdates.length) return;
@@ -4364,6 +4429,9 @@ You are a real personal assistant. Treat due dates like commitments.
                 return `<li><i class="fa-solid fa-plus" style="color:#4ade80;margin-right:0.35rem"></i><strong>${escapeHTML(u.text)}</strong> → ${escapeHTML(proj?.name || 'Tasks')}${meta ? `<span class="ai-apply-change">${meta}</span>` : ''}</li>`;
             }
             const task = tasks.find(t => t.id === u.id);
+            if (u.action === 'completeHabit') {
+                return `<li><i class="fa-solid fa-fire" style="color:#f59e0b;margin-right:0.35rem"></i>Log habit done: <strong>${escapeHTML(u.habitName || u.habitId)}</strong></li>`;
+            }
             if (u.action === 'complete') {
                 return `<li><i class="fa-solid fa-check" style="color:#4ade80;margin-right:0.35rem"></i>Complete: ${escapeHTML(task.text)}</li>`;
             }

@@ -2107,6 +2107,9 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 .goal-agency     { border-left-color: #f59e0b; }
 .goal-youtube    { border-left-color: #ef4444; }
 .goal-saas       { border-left-color: #818cf8; }
+.goal-green      { border-left-color: #22c55e; }
+.goal-blue       { border-left-color: #38bdf8; }
+.goal-pink       { border-left-color: #f472b6; }
 
 .goal-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .goal-card-title-wrap { display: flex; flex-direction: column; gap: 0.2rem; }
@@ -2122,6 +2125,9 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
 .goal-agency  .goal-progress-bar-fill { background: #f59e0b; }
 .goal-youtube .goal-progress-bar-fill { background: #ef4444; }
 .goal-saas    .goal-progress-bar-fill { background: #818cf8; }
+.goal-green   .goal-progress-bar-fill { background: #22c55e; }
+.goal-blue    .goal-progress-bar-fill { background: #38bdf8; }
+.goal-pink    .goal-progress-bar-fill { background: #f472b6; }
 .goal-progress-label { font-size: 0.72rem; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; width: 30px; text-align: right; }
 
 .goal-milestones { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
@@ -2152,6 +2158,56 @@ textarea.extra-input { resize: vertical; min-height: 64px; }
     transition: all 0.18s; flex-shrink: 0;
 }
 .milestone-add-btn:hover { background: var(--accent-primary); color: #fff; border-color: var(--accent-primary); }
+
+.goal-delete-btn {
+    width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0;
+    background: transparent; border: 1px solid transparent;
+    color: var(--text-muted); cursor: pointer; font-size: 0.72rem;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: all 0.18s;
+}
+.goal-card:hover .goal-delete-btn { opacity: 1; }
+.goal-delete-btn:hover { background: #ff446622; border-color: #ff4466; color: #ff4466; }
+
+.goal-add-card {
+    border-style: dashed; border-left-style: dashed;
+    opacity: 0.7; transition: opacity 0.18s;
+}
+.goal-add-card:hover { opacity: 1; }
+.goal-add-card-label {
+    font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+    text-transform: uppercase; letter-spacing: 0.06em;
+}
+.goal-add-form {
+    display: flex; flex-direction: column; gap: 0.5rem;
+}
+.goal-add-form input[type="text"] {
+    background: var(--bg-dark); border: 1px solid var(--border);
+    border-radius: 6px; padding: 0.4rem 0.65rem;
+    font-size: 0.85rem; color: var(--text-main); font-family: inherit;
+    transition: border-color 0.18s;
+}
+.goal-add-form input[type="text"]:focus { outline: none; border-color: var(--accent-primary); }
+.goal-add-form input[type="text"]::placeholder { color: var(--text-muted); }
+.goal-color-picker {
+    display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+}
+.goal-color-picker label { position: relative; cursor: pointer; }
+.goal-color-picker input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+.goal-color-dot {
+    display: block; width: 18px; height: 18px; border-radius: 50%;
+    border: 2px solid transparent; transition: border-color 0.15s, transform 0.15s;
+}
+.goal-color-picker input[type="radio"]:checked + .goal-color-dot {
+    border-color: var(--text-main); transform: scale(1.25);
+}
+.goal-add-form button {
+    align-self: flex-start; padding: 0.35rem 0.85rem;
+    background: var(--accent-primary); color: #fff;
+    border: none; border-radius: 6px; font-size: 0.82rem;
+    font-weight: 600; cursor: pointer; transition: opacity 0.18s;
+}
+.goal-add-form button:hover { opacity: 0.85; }
 
 /* =====================================================
    CLIENT PIPELINE
