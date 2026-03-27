@@ -122,6 +122,7 @@ const workspaceView = document.getElementById('workspace-view');
 const historyView   = document.getElementById('history-view');
 const weeklyView    = document.getElementById('weekly-view');
 const streaksView   = document.getElementById('streaks-view');
+const shelfView     = document.getElementById('shelf-view');
 const navHistoryBtn = document.getElementById('nav-history-btn');
 const backToWorkspaceBtn = document.getElementById('back-to-workspace-btn');
 const historySearch = document.getElementById('history-search');
@@ -693,6 +694,10 @@ function bindEvents() {
     // Streaks
     const navStreaksBtn = document.getElementById('nav-streaks-btn');
     if (navStreaksBtn) navStreaksBtn.addEventListener('click', showStreaks);
+
+    // Shelf
+    const navShelfBtn = document.getElementById('nav-shelf-btn');
+    if (navShelfBtn) navShelfBtn.addEventListener('click', showShelf);
 
     // Weekly planning
     const navWeeklyBtn = document.getElementById('nav-weekly-btn');
@@ -1981,7 +1986,7 @@ function exportData() {
 }
 
 // --- View switching — one function hides everything, then shows target ---
-const ALL_VIEWS = () => [workspaceView, historyView, weeklyView, streaksView].filter(Boolean);
+const ALL_VIEWS = () => [workspaceView, historyView, weeklyView, streaksView, shelfView].filter(Boolean);
 
 function switchToView(target) {
     ALL_VIEWS().forEach(v => {
@@ -2078,6 +2083,248 @@ function submitCheckIn(skipped = false) {
         showToast(`Set "${topTask}" as your #1 focus today.`, 'success', 4000);
     }
 }
+
+// ================================================================
+// SHELF — book tracker
+// ================================================================
+
+let books = [];
+let shelfFilter = 'reading'; // 'reading' | 'done' | 'want-to-read'
+// books: [{ id, title, author, category, status, note, createdAt }]
+
+const BOOK_CATEGORIES = {
+    business:     { label: 'Business',     css: 'book-cat-business' },
+    creativity:   { label: 'Creativity',   css: 'book-cat-creativity' },
+    storytelling: { label: 'Storytelling', css: 'book-cat-storytelling' },
+    investing:    { label: 'Investing',    css: 'book-cat-investing' },
+    other:        { label: 'Other',        css: 'book-cat-other' },
+};
+const STATUS_LABELS = { reading: 'Reading', done: 'Done', 'want-to-read': 'Want to Read' };
+
+function loadBooksFromStorage() {
+    try {
+        const b = JSON.parse(localStorage.getItem('arcforgeBooks') || '[]');
+        if (Array.isArray(b)) books = b;
+    } catch(e) {}
+}
+
+function saveBooksToStorage() {
+    localStorage.setItem('arcforgeBooks', JSON.stringify(books));
+    if (dbEnabled) dbSaveSetting('arcforgeBooks', JSON.stringify(books));
+}
+
+async function loadBooksFromCloud() {
+    if (!dbEnabled) return;
+    try {
+        const bStr = await dbLoadSetting('arcforgeBooks');
+        if (bStr) {
+            const b = JSON.parse(bStr);
+            if (Array.isArray(b) && b.length >= books.length) {
+                books = b;
+                localStorage.setItem('arcforgeBooks', bStr);
+            }
+        }
+    } catch(e) {}
+}
+
+function showShelf() {
+    switchToView(shelfView);
+    closeSidebar();
+    renderShelf();
+}
+
+function renderShelf() {
+    const listEl   = document.getElementById('book-list');
+    const emptyEl  = document.getElementById('shelf-empty');
+    const countEl  = document.getElementById('shelf-count-text');
+    if (!listEl) return;
+
+    const filtered = books.filter(b => b.status === shelfFilter);
+
+    // Update filter tab active states
+    document.querySelectorAll('[data-shelf-filter]').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.shelfFilter === shelfFilter);
+    });
+
+    if (filtered.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl?.classList.remove('hidden');
+        if (countEl) countEl.textContent = `No ${STATUS_LABELS[shelfFilter].toLowerCase()} books yet.`;
+        return;
+    }
+    emptyEl?.classList.add('hidden');
+    if (countEl) countEl.textContent = `${filtered.length} book${filtered.length === 1 ? '' : 's'} — ${STATUS_LABELS[shelfFilter]}`;
+
+    listEl.innerHTML = filtered.map(b => {
+        const cat = BOOK_CATEGORIES[b.category] || BOOK_CATEGORIES.other;
+        return `
+        <li class="book-item" data-id="${b.id}">
+            <div class="book-main">
+                <div class="book-info">
+                    <div class="book-header-row">
+                        <span class="book-title">${b.title}</span>
+                        <span class="context-badge ${cat.css}">${cat.label}</span>
+                    </div>
+                    <span class="book-author">${b.author || ''}</span>
+                    ${b.note ? `<span class="book-note">"${b.note}"</span>` : ''}
+                </div>
+                <div class="book-actions">
+                    <select class="book-status-select" data-id="${b.id}">
+                        <option value="reading" ${b.status === 'reading' ? 'selected' : ''}>Reading</option>
+                        <option value="done" ${b.status === 'done' ? 'selected' : ''}>Done</option>
+                        <option value="want-to-read" ${b.status === 'want-to-read' ? 'selected' : ''}>Want to Read</option>
+                    </select>
+                    <button class="book-delete-btn" data-id="${b.id}" title="Remove book">
+                        <i class="fa-solid fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+            ${b.status === 'done' && !b.note ? `
+            <div class="book-note-prompt" data-id="${b.id}">
+                <input type="text" class="book-note-input" placeholder="One thing you took from this?" maxlength="140">
+                <div class="book-note-prompt-actions">
+                    <button class="book-note-save-btn btn primary-btn">Save</button>
+                    <button class="book-note-dismiss-btn text-btn">Dismiss</button>
+                </div>
+            </div>` : ''}
+        </li>`;
+    }).join('');
+
+    // Status change
+    listEl.querySelectorAll('.book-status-select').forEach(sel => {
+        sel.addEventListener('change', () => {
+            const book = books.find(b => b.id === sel.dataset.id);
+            if (!book) return;
+            book.status = sel.value;
+            saveBooksToStorage();
+            renderShelf();
+        });
+    });
+
+    // Note save
+    listEl.querySelectorAll('.book-note-save-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const prompt = btn.closest('.book-note-prompt');
+            const id = prompt.dataset.id;
+            const input = prompt.querySelector('.book-note-input');
+            const note = (input.value || '').trim();
+            if (!note) return;
+            const book = books.find(b => b.id === id);
+            if (book) { book.note = note; saveBooksToStorage(); renderShelf(); }
+        });
+    });
+
+    // Note dismiss
+    listEl.querySelectorAll('.book-note-dismiss-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const prompt = btn.closest('.book-note-prompt');
+            const id = prompt.dataset.id;
+            // Mark with empty string to prevent re-showing (truthy check distinguishes from null)
+            const book = books.find(b => b.id === id);
+            if (book) { book.note = ''; saveBooksToStorage(); renderShelf(); }
+        });
+    });
+
+    // Delete
+    listEl.querySelectorAll('.book-delete-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            if (!confirm('Remove this book from your shelf?')) return;
+            books = books.filter(b => b.id !== btn.dataset.id);
+            saveBooksToStorage();
+            renderShelf();
+        });
+    });
+}
+
+function initShelf() {
+    loadBooksFromStorage();
+    loadBooksFromCloud();
+
+    const addBtn      = document.getElementById('add-book-btn');
+    const overlay     = document.getElementById('add-book-overlay');
+    const closeBtn    = document.getElementById('close-book-modal-btn');
+    const cancelBtn   = document.getElementById('cancel-book-btn');
+    const saveBtn     = document.getElementById('save-book-btn');
+    const titleInput  = document.getElementById('book-title-input');
+    const authorInput = document.getElementById('book-author-input');
+    const catInput    = document.getElementById('book-category-input');
+    const statusInput = document.getElementById('book-status-input');
+    const backBtn     = document.getElementById('shelf-back-btn');
+
+    if (backBtn) backBtn.addEventListener('click', showWorkspace);
+
+    // Filter tabs
+    document.querySelectorAll('[data-shelf-filter]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            shelfFilter = btn.dataset.shelfFilter;
+            renderShelf();
+        });
+    });
+
+    function openModal() {
+        if (!overlay) return;
+        overlay.classList.remove('hidden');
+        titleInput?.focus();
+    }
+    function closeModal() {
+        if (!overlay) return;
+        overlay.classList.add('hidden');
+        if (titleInput) titleInput.value = '';
+        if (authorInput) authorInput.value = '';
+    }
+
+    if (addBtn) addBtn.addEventListener('click', openModal);
+    if (closeBtn) closeBtn.addEventListener('click', closeModal);
+    if (cancelBtn) cancelBtn.addEventListener('click', closeModal);
+    overlay?.addEventListener('click', e => { if (e.target === overlay) closeModal(); });
+
+    if (saveBtn) {
+        saveBtn.addEventListener('click', () => {
+            const title = (titleInput?.value || '').trim();
+            if (!title) { titleInput?.focus(); return; }
+            const book = {
+                id: `bk-${Date.now()}`,
+                title,
+                author: (authorInput?.value || '').trim(),
+                category: catInput?.value || 'other',
+                status: statusInput?.value || 'reading',
+                note: null,
+                createdAt: new Date().toISOString(),
+            };
+            books.push(book);
+            saveBooksToStorage();
+            closeModal();
+            // Switch filter to match where the new book lands
+            shelfFilter = book.status;
+            renderShelf();
+        });
+    }
+}
+
+function getShelfContext() {
+    if (!books || books.length === 0) return '';
+    const reading    = books.filter(b => b.status === 'reading');
+    const done       = books.filter(b => b.status === 'done');
+    const wantToRead = books.filter(b => b.status === 'want-to-read');
+    let text = '\n## Shelf (reading list)\n';
+    if (reading.length) {
+        text += `Currently reading: ${reading.map(b => `"${b.title}" by ${b.author}${b.category ? ` (${b.category})` : ''}`).join(', ')}\n`;
+    }
+    if (done.length) {
+        const recent = done.slice(-5);
+        text += `Recently finished: ${recent.map(b => {
+            let s = `"${b.title}" by ${b.author}`;
+            if (b.note) s += ` — takeaway: "${b.note}"`;
+            return s;
+        }).join('; ')}\n`;
+    }
+    if (wantToRead.length) {
+        text += `Want to read: ${wantToRead.map(b => `"${b.title}"`).join(', ')}\n`;
+    }
+    return text;
+}
+
+initShelf();
 
 // ================================================================
 // STREAKS — habit tracker
@@ -3335,6 +3582,7 @@ function initAI() {
 
         const checkInCtx = getCheckInContext();
         const streaksCtx = getStreaksContext();
+        const shelfCtx   = getShelfContext();
 
         let system = `You are ArcForge AI, an intelligent productivity assistant embedded in ArcForge, a personal task manager.
 Today is ${now}.
@@ -3342,7 +3590,7 @@ Today is ${now}.
 ${mp ? `## About the user\n${mp}\n` : ''}
 ## Current workspace context
 ${JSON.stringify(projectContext, null, 2)}
-${checkInCtx}${streaksCtx}
+${checkInCtx}${streaksCtx}${shelfCtx}
 
 ## Instructions
 - Be concise, direct, and genuinely helpful.

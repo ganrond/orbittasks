@@ -78,6 +78,7 @@
                 <button id="nav-checkin-btn" class="history-nav-btn checkin-nav-btn"><i class="fa-solid fa-sun"></i> Daily Check-In</button>
                 <button id="nav-streaks-btn" class="history-nav-btn streaks-nav-btn"><i class="fa-solid fa-fire"></i> Streaks</button>
                 <button id="nav-weekly-btn" class="history-nav-btn weekly-nav-btn"><i class="fa-solid fa-calendar-week"></i> Weekly Planning</button>
+                <button id="nav-shelf-btn" class="history-nav-btn shelf-nav-btn"><i class="fa-solid fa-book-open"></i> Shelf</button>
                 <button id="nav-history-btn" class="history-nav-btn"><i class="fa-solid fa-clock-rotate-left"></i> View History</button>
                 <button id="sidebar-profile-btn" class="history-nav-btn"><i class="fa-solid fa-id-card"></i> My Profile</button>
             </div>
@@ -400,7 +401,75 @@
                     </div>
                 </div>
             </div> <!-- End streaks-view -->
+
+            <!-- Shelf View -->
+            <div id="shelf-view" class="hidden">
+                <header class="app-header shelf-header">
+                    <div class="header-title">
+                        <h1><i class="fa-solid fa-book-open"></i> Shelf</h1>
+                        <p id="shelf-count-text">Your personal reading list.</p>
+                    </div>
+                    <div class="header-controls">
+                        <button id="shelf-back-btn" class="text-btn outline back-btn">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                    </div>
+                </header>
+
+                <div class="shelf-body">
+                    <div class="shelf-toolbar">
+                        <div class="filter-tab-group">
+                            <button class="filter-btn active" data-shelf-filter="reading">Reading</button>
+                            <button class="filter-btn" data-shelf-filter="done">Done</button>
+                            <button class="filter-btn" data-shelf-filter="want-to-read">Want to Read</button>
+                        </div>
+                        <button id="add-book-btn" class="add-habit-btn" title="Add book">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+
+                    <ul id="book-list" class="book-list"></ul>
+
+                    <div id="shelf-empty" class="streaks-empty hidden">
+                        <i class="fa-solid fa-book"></i>
+                        <p>No books here yet. Hit <strong>+</strong> to add one.</p>
+                    </div>
+                </div>
+            </div> <!-- End shelf-view -->
         </main>
+    </div>
+
+    <!-- Add Book Overlay -->
+    <div id="add-book-overlay" class="add-book-overlay hidden" role="dialog" aria-modal="true" aria-label="Add Book">
+        <div class="add-book-card">
+            <div class="add-book-header">
+                <span>Add Book</span>
+                <button id="close-book-modal-btn" class="icon-btn" title="Close"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="shelf-form-fields">
+                <label class="shelf-form-label">Title</label>
+                <input type="text" id="book-title-input" class="shelf-form-input" placeholder="e.g. The E-Myth Revisited">
+                <label class="shelf-form-label">Author</label>
+                <input type="text" id="book-author-input" class="shelf-form-input" placeholder="e.g. Michael E. Gerber">
+                <label class="shelf-form-label">Category</label>
+                <select id="book-category-input" class="shelf-form-input shelf-form-select">
+                    <option value="business">Business</option>
+                    <option value="creativity">Creativity</option>
+                    <option value="storytelling">Storytelling</option>
+                    <option value="investing">Investing</option>
+                    <option value="other">Other</option>
+                </select>
+                <label class="shelf-form-label">Status</label>
+                <select id="book-status-input" class="shelf-form-input shelf-form-select">
+                    <option value="reading">Reading</option>
+                    <option value="want-to-read">Want to Read</option>
+                </select>
+            </div>
+            <div class="shelf-form-actions">
+                <button id="save-book-btn" class="btn primary-btn">Add Book</button>
+                <button id="cancel-book-btn" class="text-btn">Cancel</button>
+            </div>
+        </div>
     </div>
 
     <!-- Daily Check-In Overlay -->
