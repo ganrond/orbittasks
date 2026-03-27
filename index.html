@@ -76,6 +76,7 @@
             <div class="sidebar-section">
                 <button id="nav-today-btn" class="history-nav-btn today-nav-btn"><i class="fa-solid fa-star"></i> Today</button>
                 <button id="nav-checkin-btn" class="history-nav-btn checkin-nav-btn"><i class="fa-solid fa-sun"></i> Daily Check-In</button>
+                <button id="nav-streaks-btn" class="history-nav-btn streaks-nav-btn"><i class="fa-solid fa-fire"></i> Streaks</button>
                 <button id="nav-weekly-btn" class="history-nav-btn weekly-nav-btn"><i class="fa-solid fa-calendar-week"></i> Weekly Planning</button>
                 <button id="nav-history-btn" class="history-nav-btn"><i class="fa-solid fa-clock-rotate-left"></i> View History</button>
                 <button id="sidebar-profile-btn" class="history-nav-btn"><i class="fa-solid fa-id-card"></i> My Profile</button>
@@ -359,6 +360,46 @@
                     <textarea id="wp-summary-text" class="wp-summary-text" readonly></textarea>
                 </div>
             </div> <!-- End weekly-view -->
+
+            <!-- Streaks View -->
+            <div id="streaks-view" class="hidden">
+                <header class="app-header streaks-header">
+                    <div class="header-title">
+                        <h1><i class="fa-solid fa-fire"></i> Streaks</h1>
+                        <p id="streaks-progress-text">Build your daily habits.</p>
+                    </div>
+                    <div class="header-controls">
+                        <button id="streaks-back-btn" class="text-btn outline back-btn">
+                            <i class="fa-solid fa-arrow-left"></i> Back
+                        </button>
+                    </div>
+                </header>
+
+                <div class="streaks-body">
+                    <div class="streaks-toolbar">
+                        <span id="streaks-date-label" class="streaks-date"></span>
+                        <button id="add-habit-btn" class="add-habit-btn" title="Add habit">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                    </div>
+
+                    <!-- Inline add habit form -->
+                    <div id="add-habit-form" class="add-habit-form hidden">
+                        <input type="text" id="habit-name-input" class="habit-name-input" placeholder="Habit name (e.g. Read 20 min)" maxlength="60">
+                        <div class="add-habit-form-actions">
+                            <button id="habit-save-btn" class="btn primary-btn">Add</button>
+                            <button id="habit-cancel-btn" class="text-btn">Cancel</button>
+                        </div>
+                    </div>
+
+                    <ul id="habit-list" class="habit-list"></ul>
+
+                    <div id="streaks-empty" class="streaks-empty hidden">
+                        <i class="fa-solid fa-fire-flame-curved"></i>
+                        <p>No habits yet. Hit <strong>+</strong> to add your first one.</p>
+                    </div>
+                </div>
+            </div> <!-- End streaks-view -->
         </main>
     </div>
 

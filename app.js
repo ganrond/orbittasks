@@ -121,6 +121,7 @@ const emptyState = document.getElementById('empty-state');
 const workspaceView = document.getElementById('workspace-view');
 const historyView   = document.getElementById('history-view');
 const weeklyView    = document.getElementById('weekly-view');
+const streaksView   = document.getElementById('streaks-view');
 const navHistoryBtn = document.getElementById('nav-history-btn');
 const backToWorkspaceBtn = document.getElementById('back-to-workspace-btn');
 const historySearch = document.getElementById('history-search');
@@ -688,6 +689,10 @@ function bindEvents() {
     // Daily check-in
     const navCheckinBtn = document.getElementById('nav-checkin-btn');
     if (navCheckinBtn) navCheckinBtn.addEventListener('click', () => { closeSidebar(); showCheckIn(); });
+
+    // Streaks
+    const navStreaksBtn = document.getElementById('nav-streaks-btn');
+    if (navStreaksBtn) navStreaksBtn.addEventListener('click', showStreaks);
 
     // Weekly planning
     const navWeeklyBtn = document.getElementById('nav-weekly-btn');
@@ -1976,7 +1981,7 @@ function exportData() {
 }
 
 // --- View switching — one function hides everything, then shows target ---
-const ALL_VIEWS = () => [workspaceView, historyView, weeklyView].filter(Boolean);
+const ALL_VIEWS = () => [workspaceView, historyView, weeklyView, streaksView].filter(Boolean);
 
 function switchToView(target) {
     ALL_VIEWS().forEach(v => {
@@ -2073,6 +2078,237 @@ function submitCheckIn(skipped = false) {
         showToast(`Set "${topTask}" as your #1 focus today.`, 'success', 4000);
     }
 }
+
+// ================================================================
+// STREAKS — habit tracker
+// ================================================================
+
+// ---- State ----
+let habits     = [];
+let habitLogs  = {}; // { habitId: ["YYYY-MM-DD", ...] }
+
+function loadHabitsFromStorage() {
+    try {
+        const h = JSON.parse(localStorage.getItem('arcforgeHabits') || '[]');
+        if (Array.isArray(h)) habits = h;
+    } catch(e) {}
+    try {
+        const l = JSON.parse(localStorage.getItem('arcforgeHabitLogs') || '{}');
+        if (l && typeof l === 'object') habitLogs = l;
+    } catch(e) {}
+}
+
+function saveHabitsToStorage() {
+    localStorage.setItem('arcforgeHabits', JSON.stringify(habits));
+    localStorage.setItem('arcforgeHabitLogs', JSON.stringify(habitLogs));
+    if (dbEnabled) {
+        dbSaveSetting('arcforgeHabits', JSON.stringify(habits));
+        dbSaveSetting('arcforgeHabitLogs', JSON.stringify(habitLogs));
+    }
+}
+
+async function loadHabitsFromCloud() {
+    if (!dbEnabled) return;
+    try {
+        const [hStr, lStr] = await Promise.all([
+            dbLoadSetting('arcforgeHabits'),
+            dbLoadSetting('arcforgeHabitLogs'),
+        ]);
+        if (hStr) {
+            const h = JSON.parse(hStr);
+            if (Array.isArray(h) && h.length >= habits.length) {
+                habits = h;
+                localStorage.setItem('arcforgeHabits', hStr);
+            }
+        }
+        if (lStr) {
+            const l = JSON.parse(lStr);
+            if (l && typeof l === 'object') {
+                habitLogs = l;
+                localStorage.setItem('arcforgeHabitLogs', lStr);
+            }
+        }
+    } catch(e) {}
+}
+
+// ---- Helpers ----
+function todayStr() {
+    return new Date().toISOString().split('T')[0];
+}
+function prevDayStr(dateStr) {
+    const d = new Date(dateStr + 'T12:00:00');
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().split('T')[0];
+}
+function calcStreak(completedDates) {
+    if (!completedDates || completedDates.length === 0) return 0;
+    const today = todayStr();
+    const yesterday = prevDayStr(today);
+    const sorted = [...new Set(completedDates)].sort().reverse();
+    // Streak is still alive if completed today OR yesterday
+    const start = sorted[0] === today ? today : (sorted[0] === yesterday ? yesterday : null);
+    if (!start) return 0;
+    let streak = 0;
+    let check = start;
+    for (const d of sorted) {
+        if (d === check) { streak++; check = prevDayStr(check); }
+        else if (d < check) break;
+    }
+    return streak;
+}
+
+// ---- View ----
+function showStreaks() {
+    switchToView(streaksView);
+    closeSidebar();
+    renderStreaks();
+}
+
+function renderStreaks() {
+    const listEl      = document.getElementById('habit-list');
+    const emptyEl     = document.getElementById('streaks-empty');
+    const progressEl  = document.getElementById('streaks-progress-text');
+    const dateEl      = document.getElementById('streaks-date-label');
+    if (!listEl) return;
+
+    const today = todayStr();
+    const dateLabel = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    if (dateEl) dateEl.textContent = dateLabel;
+
+    const activeHabits = habits.filter(h => !h.archived);
+
+    if (activeHabits.length === 0) {
+        listEl.innerHTML = '';
+        emptyEl?.classList.remove('hidden');
+        if (progressEl) progressEl.textContent = 'Build your daily habits.';
+        return;
+    }
+
+    emptyEl?.classList.add('hidden');
+
+    const doneToday = activeHabits.filter(h => (habitLogs[h.id] || []).includes(today)).length;
+    if (progressEl) {
+        progressEl.textContent = doneToday === activeHabits.length
+            ? `All ${activeHabits.length} habits done today. Great work!`
+            : `${doneToday} of ${activeHabits.length} habits completed today`;
+    }
+
+    listEl.innerHTML = activeHabits.map(h => {
+        const logs    = habitLogs[h.id] || [];
+        const done    = logs.includes(today);
+        const streak  = calcStreak(logs);
+        const streakLabel = streak > 0 ? `🔥 ${streak} day${streak === 1 ? '' : 's'}` : '—';
+        return `
+        <li class="habit-item${done ? ' habit-done' : ''}" data-id="${h.id}">
+            <div class="habit-main">
+                <div class="habit-info">
+                    <span class="habit-name">${h.name}</span>
+                    <span class="habit-streak">${streakLabel}</span>
+                </div>
+                <label class="habit-checkbox-wrap" title="${done ? 'Mark incomplete' : 'Mark done'}">
+                    <input type="checkbox" class="habit-checkbox" ${done ? 'checked' : ''} data-id="${h.id}">
+                    <div class="habit-custom-checkbox"><i class="fa-solid fa-check"></i></div>
+                </label>
+            </div>
+            <button class="habit-delete-btn" data-id="${h.id}" title="Delete habit">
+                <i class="fa-solid fa-trash"></i>
+            </button>
+        </li>`;
+    }).join('');
+
+    // Checkbox toggle
+    listEl.querySelectorAll('.habit-checkbox').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const id = cb.dataset.id;
+            const today2 = todayStr();
+            if (!habitLogs[id]) habitLogs[id] = [];
+            if (cb.checked) {
+                if (!habitLogs[id].includes(today2)) habitLogs[id].push(today2);
+            } else {
+                habitLogs[id] = habitLogs[id].filter(d => d !== today2);
+            }
+            saveHabitsToStorage();
+            renderStreaks();
+        });
+    });
+
+    // Delete buttons
+    listEl.querySelectorAll('.habit-delete-btn').forEach(btn => {
+        btn.addEventListener('click', e => {
+            e.stopPropagation();
+            const id = btn.dataset.id;
+            if (!confirm('Delete this habit? Your streak data will be lost.')) return;
+            habits = habits.filter(h => h.id !== id);
+            delete habitLogs[id];
+            saveHabitsToStorage();
+            renderStreaks();
+        });
+    });
+}
+
+// ---- Add habit form ----
+function initStreaksAddForm() {
+    const addBtn    = document.getElementById('add-habit-btn');
+    const form      = document.getElementById('add-habit-form');
+    const input     = document.getElementById('habit-name-input');
+    const saveBtn   = document.getElementById('habit-save-btn');
+    const cancelBtn = document.getElementById('habit-cancel-btn');
+    const backBtn   = document.getElementById('streaks-back-btn');
+    if (!addBtn || !form) return;
+
+    addBtn.addEventListener('click', () => {
+        form.classList.toggle('hidden');
+        if (!form.classList.contains('hidden')) input.focus();
+    });
+
+    function saveHabit() {
+        const name = (input.value || '').trim();
+        if (!name) return;
+        const habit = { id: `h-${Date.now()}`, name, createdAt: new Date().toISOString() };
+        habits.push(habit);
+        habitLogs[habit.id] = [];
+        saveHabitsToStorage();
+        input.value = '';
+        form.classList.add('hidden');
+        renderStreaks();
+    }
+
+    saveBtn.addEventListener('click', saveHabit);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') saveHabit(); });
+    cancelBtn.addEventListener('click', () => { input.value = ''; form.classList.add('hidden'); });
+    if (backBtn) backBtn.addEventListener('click', showWorkspace);
+}
+
+// ---- AI context ----
+function getStreaksContext() {
+    const active = habits.filter(h => !h.archived);
+    if (active.length === 0) return '';
+    const today = todayStr();
+    let text = '\n## Daily habit streaks\n';
+    active.forEach(h => {
+        const logs   = habitLogs[h.id] || [];
+        const streak = calcStreak(logs);
+        const doneToday = logs.includes(today);
+        // Count missed days in last 7
+        let missed = 0;
+        const d = new Date();
+        for (let i = 0; i < 7; i++) {
+            const ds = d.toISOString().split('T')[0];
+            if (!logs.includes(ds)) missed++;
+            d.setDate(d.getDate() - 1);
+        }
+        text += `- "${h.name}": streak ${streak} day${streak === 1 ? '' : 's'}, today ${doneToday ? '✅ done' : '❌ not done yet'}`;
+        if (missed > 0 && missed < 7) text += `, missed ${missed}/7 days this week`;
+        if (missed === 7) text += `, not completed at all this week`;
+        text += '\n';
+    });
+    return text;
+}
+
+// ---- Bootstrap ----
+loadHabitsFromStorage();
+initStreaksAddForm();
+loadHabitsFromCloud();
 
 function getCheckInContext() {
     if (checkInLog.length === 0) return '';
@@ -3098,6 +3334,7 @@ function initAI() {
         });
 
         const checkInCtx = getCheckInContext();
+        const streaksCtx = getStreaksContext();
 
         let system = `You are ArcForge AI, an intelligent productivity assistant embedded in ArcForge, a personal task manager.
 Today is ${now}.
@@ -3105,7 +3342,7 @@ Today is ${now}.
 ${mp ? `## About the user\n${mp}\n` : ''}
 ## Current workspace context
 ${JSON.stringify(projectContext, null, 2)}
-${checkInCtx}
+${checkInCtx}${streaksCtx}
 
 ## Instructions
 - Be concise, direct, and genuinely helpful.
