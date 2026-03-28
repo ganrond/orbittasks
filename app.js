@@ -2495,17 +2495,70 @@ initPipeline();
 // TIME BUDGET — session logging + weekly widget
 // ================================================================
 
-const BUILD_HOURS_GOAL = 15; // hours per week
+let buildHoursGoal = 15; // hours per week — configurable
+
+function loadBuildGoal() {
+    try {
+        const stored = localStorage.getItem('arcforgeBuildGoal');
+        if (stored) buildHoursGoal = Number(stored) || 15;
+    } catch(e) {}
+}
+
+function saveBuildGoal(hours) {
+    buildHoursGoal = hours;
+    localStorage.setItem('arcforgeBuildGoal', String(hours));
+    if (dbEnabled) dbSaveSetting('arcforgeBuildGoal', String(hours));
+    updateBudgetWidget();
+}
+
+async function syncBuildGoalFromCloud() {
+    if (!dbEnabled) return;
+    try {
+        const str = await dbLoadSetting('arcforgeBuildGoal');
+        if (str) {
+            buildHoursGoal = Number(str) || 15;
+            localStorage.setItem('arcforgeBuildGoal', str);
+            updateBudgetWidget();
+        } else {
+            dbSaveSetting('arcforgeBuildGoal', String(buildHoursGoal));
+        }
+    } catch(e) {}
+}
 
 function logTimerSession(taskId, durationSeconds) {
     if (durationSeconds < 10) return;
     try {
         const sessions = JSON.parse(localStorage.getItem('arcforgeTimeSessions') || '[]');
-        sessions.push({ taskId, duration: durationSeconds, date: todayStr() });
+        sessions.push({ sid: `ts-${Date.now()}`, taskId, duration: durationSeconds, date: todayStr() });
         // Keep only last 90 days
         const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 90);
         const cutoffStr = [cutoff.getFullYear(), String(cutoff.getMonth()+1).padStart(2,'0'), String(cutoff.getDate()).padStart(2,'0')].join('-');
-        localStorage.setItem('arcforgeTimeSessions', JSON.stringify(sessions.filter(s => s.date >= cutoffStr)));
+        const filtered = sessions.filter(s => s.date >= cutoffStr);
+        localStorage.setItem('arcforgeTimeSessions', JSON.stringify(filtered));
+        if (dbEnabled) dbSaveSetting('arcforgeTimeSessions', JSON.stringify(filtered));
+    } catch(e) {}
+}
+
+async function syncTimeSessionsFromCloud() {
+    if (!dbEnabled) return;
+    try {
+        const str = await dbLoadSetting('arcforgeTimeSessions');
+        const local = JSON.parse(localStorage.getItem('arcforgeTimeSessions') || '[]');
+        if (!str) {
+            if (local.length > 0) dbSaveSetting('arcforgeTimeSessions', JSON.stringify(local));
+            return;
+        }
+        const cloud = JSON.parse(str);
+        // Merge: union by sid (new sessions) or composite key (legacy sessions without sid)
+        const merged = [...local];
+        const localKeys = new Set(local.map(s => s.sid || `${s.taskId}|${s.date}|${s.duration}`));
+        for (const s of cloud) {
+            const key = s.sid || `${s.taskId}|${s.date}|${s.duration}`;
+            if (!localKeys.has(key)) { merged.push(s); localKeys.add(key); }
+        }
+        localStorage.setItem('arcforgeTimeSessions', JSON.stringify(merged));
+        if (merged.length > local.length) dbSaveSetting('arcforgeTimeSessions', JSON.stringify(merged));
+        updateBudgetWidget();
     } catch(e) {}
 }
 
@@ -2527,9 +2580,9 @@ function updateBudgetWidget() {
     if (!statsEl || !barEl) return;
     const totalSecs  = getWeeklyTrackedSeconds();
     const totalHours = totalSecs / 3600;
-    const pct        = Math.min(100, Math.round((totalHours / BUILD_HOURS_GOAL) * 100));
+    const pct        = Math.min(100, Math.round((totalHours / buildHoursGoal) * 100));
     const hDisplay   = totalHours >= 1 ? `${totalHours.toFixed(1)}h` : `${Math.round(totalSecs / 60)}m`;
-    statsEl.textContent = `${hDisplay} / ${BUILD_HOURS_GOAL}h`;
+    statsEl.textContent = `${hDisplay} / ${buildHoursGoal}h`;
     barEl.style.width   = `${pct}%`;
     barEl.style.background = pct >= 100 ? 'var(--accent-success, #4ade80)' : 'var(--accent-primary)';
 }
@@ -2537,10 +2590,37 @@ function updateBudgetWidget() {
 function getTimeBudgetContext() {
     const secs  = getWeeklyTrackedSeconds();
     const hours = (secs / 3600).toFixed(1);
-    return `\n## Build time budget\nWeekly goal: ${BUILD_HOURS_GOAL} hours. This week tracked: ${hours} hours. Remaining: ${Math.max(0, BUILD_HOURS_GOAL - Number(hours)).toFixed(1)} hours.\n`;
+    return `\n## Build time budget\nWeekly goal: ${buildHoursGoal} hours. This week tracked: ${hours} hours. Remaining: ${Math.max(0, buildHoursGoal - Number(hours)).toFixed(1)} hours.\n`;
 }
 
+loadBuildGoal();
 updateBudgetWidget();
+syncBuildGoalFromCloud();
+syncTimeSessionsFromCloud();
+
+// Edit weekly goal button
+document.getElementById('build-goal-edit-btn')?.addEventListener('click', () => {
+    const current = buildHoursGoal;
+    const statsEl = document.getElementById('build-budget-stats');
+    const btn = document.getElementById('build-goal-edit-btn');
+    if (!statsEl) return;
+    const input = document.createElement('input');
+    input.type = 'number'; input.min = '1'; input.max = '168';
+    input.value = current; input.className = 'build-goal-input';
+    statsEl.replaceWith(input);
+    btn.style.display = 'none';
+    input.focus(); input.select();
+    const confirm = () => {
+        const val = Math.max(1, Math.min(168, Number(input.value) || current));
+        const newStats = document.createElement('div');
+        newStats.className = 'build-budget-stats'; newStats.id = 'build-budget-stats';
+        input.replaceWith(newStats);
+        btn.style.display = '';
+        saveBuildGoal(val);
+    };
+    input.addEventListener('blur', confirm);
+    input.addEventListener('keydown', e => { if (e.key === 'Enter') input.blur(); if (e.key === 'Escape') { input.value = current; input.blur(); } });
+});
 
 // ================================================================
 // SHIP IT — stale task detection
