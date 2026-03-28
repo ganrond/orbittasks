@@ -2141,46 +2141,55 @@ const GOAL_DEFAULTS = [
     },
 ];
 
-let goalsFromDefaults = false; // true when localStorage was empty and we seeded defaults
-
 function loadGoals() {
     try {
         const g = JSON.parse(localStorage.getItem('arcforgeGoals') || 'null');
         if (Array.isArray(g) && g.length > 0) { goals = g; return; }
     } catch(e) {}
-    // localStorage was empty — seed defaults locally only
+    // localStorage empty — seed defaults, no timestamp so cloud can override
     goals = JSON.parse(JSON.stringify(GOAL_DEFAULTS));
     localStorage.setItem('arcforgeGoals', JSON.stringify(goals));
-    goalsFromDefaults = true;
 }
 
 function saveGoals() {
+    const ts = new Date().toISOString();
     localStorage.setItem('arcforgeGoals', JSON.stringify(goals));
-    goalsFromDefaults = false; // user has real data now
-    if (dbEnabled) dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
+    localStorage.setItem('arcforgeGoalsTs', ts);
+    if (dbEnabled) {
+        dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
+        dbSaveSetting('arcforgeGoalsTs', ts);
+    }
 }
 
 async function syncGoalsFromCloud() {
     if (!dbEnabled) return;
     try {
-        if (goalsFromDefaults) {
-            // localStorage was empty — try to restore real data from cloud
-            const str = await dbLoadSetting('arcforgeGoals');
-            if (str) {
-                const g = JSON.parse(str);
-                if (Array.isArray(g) && g.length > 0) {
-                    goals = g;
-                    localStorage.setItem('arcforgeGoals', str);
-                    goalsFromDefaults = false;
-                    renderGoals();
-                }
-            } else {
-                // Nothing in cloud either — push defaults up so cloud isn't empty
-                dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
+        const localTs = localStorage.getItem('arcforgeGoalsTs') || '';
+        const [str, cloudTs] = await Promise.all([
+            dbLoadSetting('arcforgeGoals'),
+            dbLoadSetting('arcforgeGoalsTs'),
+        ]);
+
+        if (!str) {
+            // Nothing in cloud — push local up
+            dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
+            if (localTs) dbSaveSetting('arcforgeGoalsTs', localTs);
+            return;
+        }
+
+        if (cloudTs && cloudTs > localTs) {
+            // Cloud is newer (e.g. saved on phone) — use it
+            const g = JSON.parse(str);
+            if (Array.isArray(g) && g.length > 0) {
+                goals = g;
+                localStorage.setItem('arcforgeGoals', str);
+                localStorage.setItem('arcforgeGoalsTs', cloudTs);
+                renderGoals();
             }
         } else {
-            // localStorage had real data — push it to cloud, never pull
+            // Local is newer or equal — push local to cloud
             dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
+            if (localTs) dbSaveSetting('arcforgeGoalsTs', localTs);
         }
     } catch(e) {}
 }
