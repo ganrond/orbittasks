@@ -2141,34 +2141,46 @@ const GOAL_DEFAULTS = [
     },
 ];
 
+let goalsFromDefaults = false; // true when localStorage was empty and we seeded defaults
+
 function loadGoals() {
     try {
         const g = JSON.parse(localStorage.getItem('arcforgeGoals') || 'null');
         if (Array.isArray(g) && g.length > 0) { goals = g; return; }
     } catch(e) {}
+    // localStorage was empty — seed defaults locally only
     goals = JSON.parse(JSON.stringify(GOAL_DEFAULTS));
-    localStorage.setItem('arcforgeGoals', JSON.stringify(goals)); // local only — don't overwrite cloud with defaults
+    localStorage.setItem('arcforgeGoals', JSON.stringify(goals));
+    goalsFromDefaults = true;
 }
 
 function saveGoals() {
     localStorage.setItem('arcforgeGoals', JSON.stringify(goals));
+    goalsFromDefaults = false; // user has real data now
     if (dbEnabled) dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
 }
 
 async function syncGoalsFromCloud() {
     if (!dbEnabled) return;
     try {
-        const str = await dbLoadSetting('arcforgeGoals');
-        if (!str) {
-            // Nothing in cloud yet — push current state up so it's safe next time
+        if (goalsFromDefaults) {
+            // localStorage was empty — try to restore real data from cloud
+            const str = await dbLoadSetting('arcforgeGoals');
+            if (str) {
+                const g = JSON.parse(str);
+                if (Array.isArray(g) && g.length > 0) {
+                    goals = g;
+                    localStorage.setItem('arcforgeGoals', str);
+                    goalsFromDefaults = false;
+                    renderGoals();
+                }
+            } else {
+                // Nothing in cloud either — push defaults up so cloud isn't empty
+                dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
+            }
+        } else {
+            // localStorage had real data — push it to cloud, never pull
             dbSaveSetting('arcforgeGoals', JSON.stringify(goals));
-            return;
-        }
-        const g = JSON.parse(str);
-        if (Array.isArray(g) && g.length > 0) {
-            goals = g;
-            localStorage.setItem('arcforgeGoals', str);
-            renderGoals();
         }
     } catch(e) {}
 }
