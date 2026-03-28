@@ -371,7 +371,11 @@ function checkRecurringTasks() {
             timeSpent:   0,
             dueDate:     dueDate,
             order:       minOrder - 1,
-            createdAt:   new Date().toISOString()
+            createdAt:   new Date().toISOString(),
+            energy:      t.energy      || null,
+            context:     t.context     || null,
+            notes:       t.notes       || '',
+            subtasks:    t.subtasks    ? JSON.parse(JSON.stringify(t.subtasks)) : [],
         };
     });
 
@@ -938,7 +942,7 @@ function switchProject(id) {
     closeSidebar();
     renderSidebar();
 
-    document.querySelector('[data-filter="all"]').click();
+    document.querySelector('[data-filter="all"]')?.click();
     currentContextFilter = null;
     document.querySelectorAll('.context-filter-btn').forEach(b => b.classList.remove('active'));
     const allCtxBtn = document.querySelector('.context-filter-btn[data-context-filter="all"]');
@@ -1768,7 +1772,7 @@ function addTask(e) {
     selectedPriority = '';
 
     if (currentFilter === 'completed') {
-        document.querySelector('[data-filter="all"]').click();
+        document.querySelector('[data-filter="all"]')?.click();
     } else {
         renderTasks();
         renderSidebar();
@@ -2358,19 +2362,41 @@ function loadClients() {
 }
 
 function saveClients() {
+    const ts = new Date().toISOString();
     localStorage.setItem('arcforgeClients', JSON.stringify(clients));
-    if (dbEnabled) dbSaveSetting('arcforgeClients', JSON.stringify(clients));
+    localStorage.setItem('arcforgeClientsTs', ts);
+    if (dbEnabled) {
+        dbSaveSetting('arcforgeClients', JSON.stringify(clients));
+        dbSaveSetting('arcforgeClientsTs', ts);
+    }
 }
 
 async function syncClientsFromCloud() {
     if (!dbEnabled) return;
     try {
-        const str = await dbLoadSetting('arcforgeClients');
-        if (!str) return;
-        const c = JSON.parse(str);
-        if (Array.isArray(c) && c.length >= clients.length) {
-            clients = c;
-            localStorage.setItem('arcforgeClients', str);
+        const localTs = localStorage.getItem('arcforgeClientsTs') || '';
+        const [str, cloudTs] = await Promise.all([
+            dbLoadSetting('arcforgeClients'),
+            dbLoadSetting('arcforgeClientsTs'),
+        ]);
+        if (!str) {
+            if (clients.length) {
+                dbSaveSetting('arcforgeClients', JSON.stringify(clients));
+                if (localTs) dbSaveSetting('arcforgeClientsTs', localTs);
+            }
+            return;
+        }
+        if (cloudTs && cloudTs > localTs) {
+            const c = JSON.parse(str);
+            if (Array.isArray(c)) {
+                clients = c;
+                localStorage.setItem('arcforgeClients', str);
+                localStorage.setItem('arcforgeClientsTs', cloudTs);
+                renderPipeline();
+            }
+        } else {
+            dbSaveSetting('arcforgeClients', JSON.stringify(clients));
+            if (localTs) dbSaveSetting('arcforgeClientsTs', localTs);
         }
     } catch(e) {}
 }
@@ -2689,20 +2715,41 @@ function loadBooksFromStorage() {
 }
 
 function saveBooksToStorage() {
+    const ts = new Date().toISOString();
     localStorage.setItem('arcforgeBooks', JSON.stringify(books));
-    if (dbEnabled) dbSaveSetting('arcforgeBooks', JSON.stringify(books));
+    localStorage.setItem('arcforgeBooksTs', ts);
+    if (dbEnabled) {
+        dbSaveSetting('arcforgeBooks', JSON.stringify(books));
+        dbSaveSetting('arcforgeBooksTs', ts);
+    }
 }
 
 async function loadBooksFromCloud() {
     if (!dbEnabled) return;
     try {
-        const bStr = await dbLoadSetting('arcforgeBooks');
-        if (bStr) {
+        const localTs = localStorage.getItem('arcforgeBooksTs') || '';
+        const [bStr, cloudTs] = await Promise.all([
+            dbLoadSetting('arcforgeBooks'),
+            dbLoadSetting('arcforgeBooksTs'),
+        ]);
+        if (!bStr) {
+            if (books.length) {
+                dbSaveSetting('arcforgeBooks', JSON.stringify(books));
+                if (localTs) dbSaveSetting('arcforgeBooksTs', localTs);
+            }
+            return;
+        }
+        if (cloudTs && cloudTs > localTs) {
             const b = JSON.parse(bStr);
-            if (Array.isArray(b) && b.length >= books.length) {
+            if (Array.isArray(b)) {
                 books = b;
                 localStorage.setItem('arcforgeBooks', bStr);
+                localStorage.setItem('arcforgeBooksTs', cloudTs);
+                renderShelf();
             }
+        } else {
+            dbSaveSetting('arcforgeBooks', JSON.stringify(books));
+            if (localTs) dbSaveSetting('arcforgeBooksTs', localTs);
         }
     } catch(e) {}
 }
@@ -2931,34 +2978,52 @@ function loadHabitsFromStorage() {
 }
 
 function saveHabitsToStorage() {
+    const ts = new Date().toISOString();
     localStorage.setItem('arcforgeHabits', JSON.stringify(habits));
     localStorage.setItem('arcforgeHabitLogs', JSON.stringify(habitLogs));
+    localStorage.setItem('arcforgeHabitsTs', ts);
     if (dbEnabled) {
         dbSaveSetting('arcforgeHabits', JSON.stringify(habits));
         dbSaveSetting('arcforgeHabitLogs', JSON.stringify(habitLogs));
+        dbSaveSetting('arcforgeHabitsTs', ts);
     }
 }
 
 async function loadHabitsFromCloud() {
     if (!dbEnabled) return;
     try {
-        const [hStr, lStr] = await Promise.all([
+        const localTs = localStorage.getItem('arcforgeHabitsTs') || '';
+        const [hStr, lStr, cloudTs] = await Promise.all([
             dbLoadSetting('arcforgeHabits'),
             dbLoadSetting('arcforgeHabitLogs'),
+            dbLoadSetting('arcforgeHabitsTs'),
         ]);
-        if (hStr) {
-            const h = JSON.parse(hStr);
-            if (Array.isArray(h) && h.length >= habits.length) {
-                habits = h;
-                localStorage.setItem('arcforgeHabits', hStr);
+        if (!hStr && !lStr) {
+            // Nothing in cloud — push local up
+            if (habits.length) {
+                dbSaveSetting('arcforgeHabits', JSON.stringify(habits));
+                dbSaveSetting('arcforgeHabitLogs', JSON.stringify(habitLogs));
+                if (localTs) dbSaveSetting('arcforgeHabitsTs', localTs);
             }
+            return;
         }
-        if (lStr) {
-            const l = JSON.parse(lStr);
-            if (l && typeof l === 'object') {
-                habitLogs = l;
-                localStorage.setItem('arcforgeHabitLogs', lStr);
+        if (cloudTs && cloudTs > localTs) {
+            // Cloud is newer — use it
+            if (hStr) {
+                const h = JSON.parse(hStr);
+                if (Array.isArray(h)) { habits = h; localStorage.setItem('arcforgeHabits', hStr); }
             }
+            if (lStr) {
+                const l = JSON.parse(lStr);
+                if (l && typeof l === 'object') { habitLogs = l; localStorage.setItem('arcforgeHabitLogs', lStr); }
+            }
+            localStorage.setItem('arcforgeHabitsTs', cloudTs);
+            renderStreaks();
+        } else {
+            // Local is newer — push to cloud
+            dbSaveSetting('arcforgeHabits', JSON.stringify(habits));
+            dbSaveSetting('arcforgeHabitLogs', JSON.stringify(habitLogs));
+            if (localTs) dbSaveSetting('arcforgeHabitsTs', localTs);
         }
     } catch(e) {}
 }
@@ -3104,7 +3169,7 @@ function initStreaksAddForm() {
     function saveHabit() {
         const name = (input.value || '').trim();
         if (!name) return;
-        const habit = { id: `h-${Date.now()}`, name, createdAt: new Date().toISOString() };
+        const habit = { id: `h-${Date.now()}`, name, archived: false, createdAt: new Date().toISOString() };
         habits.push(habit);
         habitLogs[habit.id] = [];
         saveHabitsToStorage();
@@ -3859,7 +3924,7 @@ function createTaskFromVoice(text, projId = currentProjectId) {
 
     if (projId === currentProjectId) {
         if (currentFilter === 'completed') {
-            document.querySelector('[data-filter="all"]').click();
+            document.querySelector('[data-filter="all"]')?.click();
         } else {
             renderTasks();
             renderSidebar();
