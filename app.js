@@ -4052,6 +4052,7 @@ function initAI() {
     fab.addEventListener('click', openPanel);
     closeBtn.addEventListener('click', closePanel);
     backdrop.addEventListener('click', closePanel);
+    document.getElementById('ai-mobile-back-btn')?.addEventListener('click', closePanel);
 
     // ---- Settings toggle ----
     settingsBtn.addEventListener('click', () => {
