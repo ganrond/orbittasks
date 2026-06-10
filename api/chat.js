@@ -1,7 +1,8 @@
-// ArcForge — AI Chat Proxy
-// Keeps the Anthropic API key server-side (never exposed to the browser)
+// ArcForge — AI Chat Proxy (Google Gemini)
+// Keeps the API key server-side (never exposed to the browser).
+// POST body: { messages: [{role, content}...], system: string }  OR  { message: string }
+// Response:  { reply: string }
 module.exports = async (req, res) => {
-    // CORS preflight
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -9,62 +10,53 @@ module.exports = async (req, res) => {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.GOOGLE_AI_API_KEY;
     if (!apiKey) {
         return res.status(500).json({
-            error: 'ANTHROPIC_API_KEY is not set in Vercel environment variables.'
+            error: 'GOOGLE_AI_API_KEY is not set. Add it in Vercel → Settings → Environment Variables.'
         });
     }
 
-    const { messages, system } = req.body || {};
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-        return res.status(400).json({ error: 'Invalid messages array.' });
+    const { message, messages, system } = req.body || {};
+
+    // Build Gemini contents array from chat history or a single message
+    let contents = [];
+    if (Array.isArray(messages) && messages.length > 0) {
+        contents = messages.map(m => ({
+            role: m.role === 'assistant' ? 'model' : 'user',
+            parts: [{ text: m.content }]
+        }));
+    } else if (message) {
+        contents = [{ role: 'user', parts: [{ text: message }] }];
+    } else {
+        return res.status(400).json({ error: 'No message provided.' });
+    }
+
+    const body = { contents };
+    if (system) {
+        body.systemInstruction = { parts: [{ text: system }] };
     }
 
     try {
-        const upstream = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01',
-            },
-            body: JSON.stringify({
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 2048,
-                stream: true,
-                system: system || '',
-                messages,
-            }),
-        });
+        const upstream = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            }
+        );
 
         if (!upstream.ok) {
             const errText = await upstream.text();
             return res.status(upstream.status).json({ error: errText });
         }
 
-        // Stream the SSE response directly back to the browser
-        res.setHeader('Content-Type', 'text/event-stream');
-        res.setHeader('Cache-Control', 'no-cache');
-        res.setHeader('Connection', 'keep-alive');
-
-        const reader = upstream.body.getReader();
-        const decoder = new TextDecoder();
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            res.write(decoder.decode(value, { stream: true }));
-        }
-
-        res.end();
+        const data = await upstream.json();
+        const reply = data.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+        return res.status(200).json({ reply });
     } catch (err) {
         console.error('[AI proxy error]', err);
-        // Only send error if headers haven't been sent yet
-        if (!res.headersSent) {
-            res.status(500).json({ error: 'Internal server error.' });
-        } else {
-            res.end();
-        }
+        return res.status(500).json({ error: 'Internal server error.' });
     }
 };

@@ -77,6 +77,10 @@ let pomodoroDuration = parseInt(localStorage.getItem('arcforgePomodoroDuration')
 // Initialize Supabase connection (returns false if credentials not filled)
 const dbEnabled = (typeof initDB === 'function') ? initDB() : false;
 
+// Guard: prevent empty local state from overwriting Supabase before cloud data is fetched.
+// Set to true (a) when Supabase is disabled, or (b) after init() completes its cloud load.
+let _cloudDataReady = !dbEnabled;
+
 let activeTimerTaskId = null;
 let timerInterval = null;
 let timeRemaining = pomodoroDuration;
@@ -303,6 +307,9 @@ async function init() {
         }
     }
 
+    // Cloud load phase is complete (success or failure). Safe to write to Supabase from here on.
+    _cloudDataReady = true;
+
     checkRecurringTasks();
     initNotifications();
     renderSidebar();
@@ -486,7 +493,7 @@ function saveAll() {
     localStorage.setItem('arcforgeTemplates', JSON.stringify(templates));
     localStorage.setItem('arcforgeTasks', JSON.stringify(tasks));
     localStorage.setItem('arcforgeCurrentProject', currentProjectId);
-    if (dbEnabled) {
+    if (dbEnabled && _cloudDataReady) {
         dbSaveProjects(projects);
         dbSaveTasks(tasks);
         dbSaveTemplates(templates);
@@ -4449,42 +4456,9 @@ You are a real personal assistant. Treat due dates like commitments.
                 throw new Error(errMsg);
             }
 
-            // Parse SSE stream
-            const reader  = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer    = '';
-            let fullText  = '';
+            const { reply: fullText } = await response.json();
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop(); // keep incomplete line
-
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    const data = line.slice(6).trim();
-                    if (data === '[DONE]') continue;
-                    try {
-                        const evt = JSON.parse(data);
-                        if (evt.type === 'content_block_delta' &&
-                            evt.delta?.type === 'text_delta') {
-                            fullText += evt.delta.text;
-                            bubble.innerHTML = renderMarkdown(fullText) + '<span class="ai-cursor"></span>';
-                            messagesEl.scrollTop = messagesEl.scrollHeight;
-                        }
-                        if (evt.type === 'message_stop') {
-                            bubble.innerHTML = renderMarkdown(fullText);
-                        }
-                    } catch {}
-                }
-            }
-
-            // Finalise
             if (fullText) {
-                // Check for task update block before rendering
                 const updatesMatch = fullText.match(/<!--ARCFORGE_UPDATES(\[[\s\S]*?\])ARCFORGE_UPDATES-->/);
                 if (updatesMatch) {
                     try {
@@ -4500,10 +4474,12 @@ You are a real personal assistant. Treat due dates like commitments.
                 }
                 chatHistory.push({ role: 'assistant', content: fullText });
                 saveChatHistory();
+            } else {
+                bubble.innerHTML = '<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> No response from AI.</span>';
             }
 
         } catch (err) {
-            console.error('[AI] Stream error:', err);
+            console.error('[AI] Error:', err);
             if (!bubble.querySelector('.ai-error')) {
                 bubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Something went wrong. Please try again.</span>`;
             }
@@ -4718,28 +4694,8 @@ Structure your response:
                 throw new Error(errDetail);
             }
 
-            const reader  = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    const data = line.slice(6).trim();
-                    if (data === '[DONE]') continue;
-                    try {
-                        const evt = JSON.parse(data);
-                        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
-                            fullText += evt.delta.text;
-                        }
-                    } catch {}
-                }
-            }
+            const scanData = await response.json();
+            fullText = scanData.reply || '';
         } catch (err) {
             console.error('[Scan error]', err);
             scanWrapper.remove();
@@ -4837,26 +4793,8 @@ Structure your response:
                 })
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '';
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    const data = line.slice(6).trim();
-                    if (data === '[DONE]') continue;
-                    try {
-                        const evt = JSON.parse(data);
-                        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') fullText += evt.delta.text;
-                    } catch {}
-                }
-            }
+            const breakdownData = await response.json();
+            fullText = breakdownData.reply || '';
         } catch (err) {
             scanBubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Breakdown failed: ${escapeHTML(err.message)}</span>`;
             streaming = false;
@@ -4908,26 +4846,8 @@ Structure your response:
                 })
             });
             if (!response.ok) return;
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = '', fullText = '';
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                buffer += decoder.decode(value, { stream: true });
-                const lines = buffer.split('\n');
-                buffer = lines.pop();
-                for (const line of lines) {
-                    if (!line.startsWith('data: ')) continue;
-                    const data = line.slice(6).trim();
-                    if (data === '[DONE]') continue;
-                    try {
-                        const evt = JSON.parse(data);
-                        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') fullText += evt.delta.text;
-                    } catch {}
-                }
-            }
+            const priorityData = await response.json();
+            const fullText = priorityData.reply || '';
 
             const match = fullText.match(/\{[\s\S]*\}/);
             if (!match) return;
