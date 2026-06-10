@@ -4456,8 +4456,40 @@ You are a real personal assistant. Treat due dates like commitments.
                 throw new Error(errMsg);
             }
 
-            const { reply: fullText } = await response.json();
+            // Parse SSE stream
+            const reader  = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer    = '';
+            let fullText  = '';
 
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const evt = JSON.parse(data);
+                        if (evt.type === 'content_block_delta' &&
+                            evt.delta?.type === 'text_delta') {
+                            fullText += evt.delta.text;
+                            bubble.innerHTML = renderMarkdown(fullText) + '<span class="ai-cursor"></span>';
+                            messagesEl.scrollTop = messagesEl.scrollHeight;
+                        }
+                        if (evt.type === 'message_stop') {
+                            bubble.innerHTML = renderMarkdown(fullText);
+                        }
+                    } catch {}
+                }
+            }
+
+            // Finalise
             if (fullText) {
                 const updatesMatch = fullText.match(/<!--ARCFORGE_UPDATES(\[[\s\S]*?\])ARCFORGE_UPDATES-->/);
                 if (updatesMatch) {
@@ -4474,12 +4506,10 @@ You are a real personal assistant. Treat due dates like commitments.
                 }
                 chatHistory.push({ role: 'assistant', content: fullText });
                 saveChatHistory();
-            } else {
-                bubble.innerHTML = '<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> No response from AI.</span>';
             }
 
         } catch (err) {
-            console.error('[AI] Error:', err);
+            console.error('[AI] Stream error:', err);
             if (!bubble.querySelector('.ai-error')) {
                 bubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Something went wrong. Please try again.</span>`;
             }
@@ -4694,8 +4724,28 @@ Structure your response:
                 throw new Error(errDetail);
             }
 
-            const scanData = await response.json();
-            fullText = scanData.reply || '';
+            const reader  = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const evt = JSON.parse(data);
+                        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') {
+                            fullText += evt.delta.text;
+                        }
+                    } catch {}
+                }
+            }
         } catch (err) {
             console.error('[Scan error]', err);
             scanWrapper.remove();
@@ -4793,8 +4843,25 @@ Structure your response:
                 })
             });
             if (!response.ok) throw new Error(`HTTP ${response.status}`);
-            const breakdownData = await response.json();
-            fullText = breakdownData.reply || '';
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const evt = JSON.parse(data);
+                        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') fullText += evt.delta.text;
+                    } catch {}
+                }
+            }
         } catch (err) {
             scanBubble.innerHTML = `<span class="ai-error"><i class="fa-solid fa-triangle-exclamation"></i> Breakdown failed: ${escapeHTML(err.message)}</span>`;
             streaming = false;
@@ -4846,8 +4913,25 @@ Structure your response:
                 })
             });
             if (!response.ok) return;
-            const priorityData = await response.json();
-            const fullText = priorityData.reply || '';
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = '', fullText = '';
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n');
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (!line.startsWith('data: ')) continue;
+                    const data = line.slice(6).trim();
+                    if (data === '[DONE]') continue;
+                    try {
+                        const evt = JSON.parse(data);
+                        if (evt.type === 'content_block_delta' && evt.delta?.type === 'text_delta') fullText += evt.delta.text;
+                    } catch {}
+                }
+            }
 
             const match = fullText.match(/\{[\s\S]*\}/);
             if (!match) return;

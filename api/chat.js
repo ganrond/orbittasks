@@ -1,7 +1,6 @@
-// ArcForge — AI Chat Proxy (Anthropic)
-// Keeps the API key server-side (never exposed to the browser).
-// POST body: { messages: [{role, content}...], system: string }  OR  { message: string }
-// Response:  { reply: string }
+// ArcForge — AI Chat Proxy (Anthropic, SSE streaming)
+// Keeps the API key server-side. Pipes the Anthropic SSE stream directly to the browser.
+// POST body: { messages: [{role, content}...], system: string }
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -17,15 +16,9 @@ module.exports = async (req, res) => {
         });
     }
 
-    const { message, messages, system } = req.body || {};
-
-    let msgArray = [];
-    if (Array.isArray(messages) && messages.length > 0) {
-        msgArray = messages;
-    } else if (message) {
-        msgArray = [{ role: 'user', content: message }];
-    } else {
-        return res.status(400).json({ error: 'No message provided.' });
+    const { messages, system } = req.body || {};
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+        return res.status(400).json({ error: 'Invalid messages array.' });
     }
 
     try {
@@ -39,8 +32,9 @@ module.exports = async (req, res) => {
             body: JSON.stringify({
                 model: 'claude-haiku-4-5-20251001',
                 max_tokens: 2048,
+                stream: true,
                 system: system || '',
-                messages: msgArray,
+                messages,
             }),
         });
 
@@ -49,11 +43,27 @@ module.exports = async (req, res) => {
             return res.status(upstream.status).json({ error: errText });
         }
 
-        const data = await upstream.json();
-        const reply = data.content?.[0]?.text ?? '';
-        return res.status(200).json({ reply });
+        // Pipe SSE stream directly to the browser
+        res.setHeader('Content-Type', 'text/event-stream');
+        res.setHeader('Cache-Control', 'no-cache');
+        res.setHeader('Connection', 'keep-alive');
+
+        const reader = upstream.body.getReader();
+        const decoder = new TextDecoder();
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            res.write(decoder.decode(value, { stream: true }));
+        }
+
+        res.end();
     } catch (err) {
         console.error('[AI proxy error]', err);
-        return res.status(500).json({ error: 'Internal server error.' });
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Internal server error.' });
+        } else {
+            res.end();
+        }
     }
 };
